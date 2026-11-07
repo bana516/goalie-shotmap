@@ -1224,7 +1224,7 @@ button:disabled{opacity:.4; cursor:not-allowed}
     M=null;render();
   }
   el.menu.addEventListener('keydown',function(e){
-    if(e.key!=='Enter'||!M)return;
+    if(e.key!=='Enter'||!M||e.isComposing||e.keyCode===229)return;
     if(M.mode==='rename'){e.preventDefault();doRename()}
     else if(M.kind==='game'&&M.mode==='move'){e.preventDefault();var b=el.menu.querySelector('[data-act="move-new"]');if(b)b.click()}
   });
