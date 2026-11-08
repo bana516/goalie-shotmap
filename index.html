@@ -388,7 +388,7 @@ button:disabled{opacity:.4; cursor:not-allowed}
 /* ===== 영상 분석 · 백업 · 리포트 ===== */
 .vidarea{display:grid; gap:10px; min-width:0; align-content:start}
 .vframe{position:relative; width:100%; aspect-ratio:16/9; background:#05090D; border-radius:14px; overflow:hidden}
-.vframe iframe{position:absolute; inset:0; width:100%; height:100%; border:0}
+.vframe iframe,.vframe video{position:absolute; inset:0; width:100%; height:100%; border:0}
 .vempty{position:absolute; inset:0; display:grid; place-items:center; padding:16px; color:#C9D5DF; font-size:14px; text-align:center}
 .vctl{display:flex; flex-wrap:wrap; align-items:center; gap:6px 8px}
 .vbig{min-height:54px; min-width:64px; padding:0 9px; font-size:16px; font-weight:600; display:inline-flex; align-items:center; justify-content:center; gap:4px}
@@ -483,14 +483,15 @@ button:disabled{opacity:.4; cursor:not-allowed}
       <div class="crumb"><button class="btn sm" id="vlBack">‹ 홈</button><span class="ctitle">영상 분석</span></div>
     </div>
     <form class="card" id="vForm" autocomplete="off" novalidate>
-      <h2>새 영상 분석 <em>유튜브 주소를 붙여 넣으세요</em></h2>
+      <h2>새 영상 분석 <em>유튜브 영상 또는 내 영상</em></h2>
       <div class="vnewrow">
         <label class="fld vgrow" for="vUrlIn">유튜브 주소<input id="vUrlIn" type="url" inputmode="url" placeholder="https://youtu.be/..." autocomplete="off"></label>
+        <label class="fld vgrow" for="vFileIn">내 영상 업로드<input id="vFileIn" type="file" accept="video/*"></label>
         <label class="fld" for="vOppIn">상대팀 (선택)<input id="vOppIn" type="text" maxlength="40" placeholder="상대팀 이름" list="teamList" autocomplete="off"></label>
         <button class="btn primary" type="submit">분석 시작</button>
       </div>
       <div class="dsum err" id="vErr" hidden></div>
-      <div class="cap">공개 또는 일부 공개 영상만 재생됩니다. 영상은 앱 안에서 재생만 하고 저장하거나 내려받지 않습니다.</div>
+      <div class="cap">내 영상은 이 기기에만 저장되며 다른 기기와 동기화되지 않습니다. 파일당 최대 250MB입니다. 유튜브 영상은 공개 또는 일부 공개 영상만 재생됩니다.</div>
     </form>
     <div class="card">
       <h2>영상 분석 기록 <em>아직 통계에 들어가지 않은 기록</em></h2>
@@ -714,6 +715,8 @@ button:disabled{opacity:.4; cursor:not-allowed}
   var PERLONG={1:'1피리어드',2:'2피리어드',3:'3피리어드',4:'연장','all':'전체'};
   var BOUNDS={rink:[100,85],net:[120,90]};
   var KEY='goalie-shotmap-v3';
+  var VIDEO_DB='goalie-shotmap-media-v1',VIDEO_STORE='videos',MAX_VIDEO_SIZE=250*1024*1024;
+  var videoDbPromise=null;
   var HOLD=450;
   var GROUPS=['sp','gm','sv','pl','rb'];
   var PANEL=['gm','sp','sv','pl','rb'];
@@ -836,6 +839,58 @@ button:disabled{opacity:.4; cursor:not-allowed}
     D=seed();
   }
   function save(){try{localStorage.setItem(KEY,JSON.stringify(D))}catch(e){}}
+  function videoDb(){
+    if(videoDbPromise)return videoDbPromise;
+    videoDbPromise=new Promise(function(resolve,reject){
+      if(!window.indexedDB){reject(new Error('이 브라우저는 영상 파일을 보관할 수 없습니다.'));return}
+      var req=window.indexedDB.open(VIDEO_DB,1);
+      req.onupgradeneeded=function(){if(!req.result.objectStoreNames.contains(VIDEO_STORE))req.result.createObjectStore(VIDEO_STORE)};
+      req.onsuccess=function(){resolve(req.result)};
+      req.onerror=function(){videoDbPromise=null;reject(req.error||new Error('영상 저장소를 열지 못했습니다.'))};
+      req.onblocked=function(){videoDbPromise=null;reject(new Error('영상 저장소가 다른 탭에서 사용 중입니다. 새로고침 후 다시 시도해 주세요.'))};
+    });
+    return videoDbPromise;
+  }
+  function putVideoFile(id,file){
+    return videoDb().then(function(db){return new Promise(function(resolve,reject){
+      var tx;
+      try{tx=db.transaction(VIDEO_STORE,'readwrite');tx.objectStore(VIDEO_STORE).put(file,id)}
+      catch(e){reject(e);return}
+      tx.oncomplete=function(){resolve()};
+      tx.onerror=function(){reject(tx.error||new Error('영상 파일을 저장하지 못했습니다.'))};
+      tx.onabort=function(){reject(tx.error||new Error('영상 파일 저장이 취소되었습니다.'))};
+    })});
+  }
+  function getVideoFile(id){
+    return videoDb().then(function(db){return new Promise(function(resolve,reject){
+      var tx,req;
+      try{tx=db.transaction(VIDEO_STORE,'readonly');req=tx.objectStore(VIDEO_STORE).get(id)}
+      catch(e){reject(e);return}
+      req.onsuccess=function(){resolve(req.result)};
+      req.onerror=function(){reject(req.error||new Error('저장한 영상 파일을 읽지 못했습니다.'))};
+      tx.onabort=function(){reject(tx.error||new Error('영상 파일을 읽지 못했습니다.'))};
+    })});
+  }
+  function deleteVideoFile(id){
+    return videoDb().then(function(db){return new Promise(function(resolve,reject){
+      var tx;
+      try{tx=db.transaction(VIDEO_STORE,'readwrite');tx.objectStore(VIDEO_STORE).delete(id)}
+      catch(e){reject(e);return}
+      tx.oncomplete=function(){resolve()};
+      tx.onerror=function(){reject(tx.error||new Error('영상 파일을 삭제하지 못했습니다.'))};
+      tx.onabort=function(){reject(tx.error||new Error('영상 파일 삭제가 취소되었습니다.'))};
+    })});
+  }
+  function localVideoRefs(g){
+    var out=[];
+    if(g&&g.vid&&g.vid.localId)out.push(g.vid.localId);
+    if(g&&g.prev&&g.prev.vid&&g.prev.vid.localId)out.push(g.prev.vid.localId);
+    return out;
+  }
+  function deleteVideoIfUnused(id){
+    if(!id||D.games.some(function(g){return localVideoRefs(g).indexOf(id)>-1}))return;
+    deleteVideoFile(id).catch(function(err){flash('영상 파일을 기기 저장소에서 정리하지 못했습니다. '+(err&&err.message?err.message:''),true)});
+  }
 
   /* ---------- lookups ---------- */
   function goalieById(id){return D.goalies.filter(function(g){return g.id===id})[0]}
@@ -925,7 +980,7 @@ button:disabled{opacity:.4; cursor:not-allowed}
    'aggScope','aggSub','aggStats','aggTabs','hLang','zoneCard','zoneSub','zoneTabs','zoneBody','aggRinkHost','aggNetHost','aggTable',
    'bBack','bBackName','bTitle','stats','mOpp','mToi','mRes','tabs','goalBtn','undoBtn','redoBtn','guide',
    'rinkPane','netPane','sitPane','rinkSvg','netSvg','rinkMarks','netMarks','sitTgt','sitBody','chips','clearBtn','backdrop','menu','flipBtn','rinkCap','otBtn','subBtn','splitNote','dlgWrap','dlg','memoCv','memoText','memoTools',
-   'hVid','hExport','hImport','hFile','hMsg','scrVid','vlBack','vForm','vUrlIn','vOppIn','vErr','vList','vidArea','vFrame','vBack5','vPlay','vFwd5','vTime','vRate','vLine','vMarks','vHead','vCap','vEmpty','vOpen','vRec','chipF','sendBtn','vNote','vSwWrap','vSw','pdfBtn','gMsg','aggNote','xWrap','xdlg'
+   'hVid','hExport','hImport','hFile','hMsg','scrVid','vlBack','vForm','vUrlIn','vFileIn','vOppIn','vErr','vList','vidArea','vFrame','vBack5','vPlay','vFwd5','vTime','vRate','vLine','vMarks','vHead','vCap','vEmpty','vOpen','vRec','chipF','sendBtn','vNote','vSwWrap','vSw','pdfBtn','gMsg','aggNote','xWrap','xdlg'
   ].forEach(function(id){el[id]=$(id)});
   el.aggRinkHost.innerHTML=cloneSvg(el.rinkSvg,'agg-');
   el.aggNetHost.innerHTML=cloneSvg(el.netSvg,'agg-');
@@ -1298,9 +1353,11 @@ button:disabled{opacity:.4; cursor:not-allowed}
       else if(act==='del'){
         if(!M.arm){M.arm=true;renderMenu();return}
         var id=M.id;
+        var oldVideoIds=[];
+        D.games.filter(function(x){return x.goalieId===id}).forEach(function(x){oldVideoIds=oldVideoIds.concat(localVideoRefs(x))});
         D.games=D.games.filter(function(x){return x.goalieId!==id});
         D.goalies=D.goalies.filter(function(x){return x.id!==id});
-        M=null;render();
+        M=null;render();oldVideoIds.forEach(deleteVideoIfUnused);
       }
     }else if(M.kind==='game'){
       var mg=D.games.filter(function(x){return x.id===M.id})[0];
@@ -1318,9 +1375,10 @@ button:disabled{opacity:.4; cursor:not-allowed}
       if(act==='del'){
         if(!M.arm){M.arm=true;renderMenu();return}
         var gid=M.id;
+        var deletedGame=D.games.filter(function(x){return x.id===gid})[0],oldVideoIds=localVideoRefs(deletedGame);
         D.games=D.games.filter(function(x){return x.id!==gid});
         var i=A.sel.indexOf(gid);if(i>-1)A.sel.splice(i,1);
-        M=null;render();
+        M=null;render();oldVideoIds.forEach(deleteVideoIfUnused);
       }
     }
   });
@@ -2128,7 +2186,7 @@ button:disabled{opacity:.4; cursor:not-allowed}
   });
 
   /* ---------- 영상 분석: 유튜브 플레이어 (공식 embed + postMessage) ---------- */
-  var YT={id:null,frame:null,t:0,stamp:0,state:-1,rate:1,dur:0,ready:false,fail:false,lt:null,ft:null,cap:'',play:''};
+  var YT={id:null,kind:null,frame:null,objectUrl:null,loading:false,t:0,stamp:0,state:-1,rate:1,dur:0,ready:false,fail:false,lt:null,ft:null,cap:'',play:''};
   var RATES=[0.25,0.5,1,1.5,2];
   function ytId(u){
     u=String(u||'').trim();
@@ -2142,22 +2200,72 @@ button:disabled{opacity:.4; cursor:not-allowed}
     return (h?h+':'+(m<10?'0':''):'')+m+':'+(x<10?'0':'')+x;
   }
   function vPost(o){try{if(YT.frame&&YT.frame.contentWindow)YT.frame.contentWindow.postMessage(JSON.stringify(o),'*')}catch(e){}}
-  function vCmd(f,a){vPost({event:'command',func:f,args:a||[],id:1,channel:'widget'})}
+  function vCmd(f,a){
+    if(YT.kind==='local'&&YT.frame){
+      var v=YT.frame;
+      try{
+        if(f==='seekTo')v.currentTime=Math.max(0,a&&a[0]||0);
+        else if(f==='playVideo'){var p=v.play();if(p&&p.catch)p.catch(function(){YT.fail=true;YT.state=2;vTick()})}
+        else if(f==='pauseVideo')v.pause();
+        else if(f==='setPlaybackRate')v.playbackRate=a&&a[0]||1;
+      }catch(err){YT.fail=true;YT.state=2;vTick()}
+      return;
+    }
+    vPost({event:'command',func:f,args:a||[],id:1,channel:'widget'});
+  }
   function vNow(){
     if(!YT.ready)return null;
+    if(YT.kind==='local'&&YT.frame)return YT.frame.currentTime;
     var t=YT.t;if(YT.state===1)t+=(performance.now()-YT.stamp)/1000*YT.rate;
     return Math.max(0,t);
   }
+  function videoKey(g){return g.vid.localId?'local:'+g.vid.localId:'youtube:'+g.vid.yt}
   function vMount(g){
-    if(YT.id===g.vid.yt&&YT.frame&&el.vFrame.contains(YT.frame))return;
+    var key=videoKey(g),isLocal=!!g.vid.localId;
+    if(YT.id===key&&(YT.loading||YT.frame&&el.vFrame.contains(YT.frame)))return;
     if(YT.frame&&YT.frame.parentNode)YT.frame.parentNode.removeChild(YT.frame);
+    if(YT.objectUrl){URL.revokeObjectURL(YT.objectUrl);YT.objectUrl=null}
     clearInterval(YT.lt);clearTimeout(YT.ft);
-    YT.fail=false;el.vEmpty.textContent='영상을 불러오는 중입니다…';
-    YT.ft=setTimeout(function(){if(!YT.ready){YT.fail=true;el.vEmpty.textContent='영상을 불러오지 못했습니다. 이 화면에서는 외부 영상이 막혀 있을 수 있습니다. 직접 올린 웹 주소에서 열거나 유튜브에서 열기를 눌러 주세요.';YT.cap='';vTick()}},10000);
-    YT.id=g.vid.yt;YT.ready=false;YT.t=0;YT.stamp=performance.now();YT.state=-1;YT.dur=0;YT.rate=1;
+    YT.id=key;YT.kind=isLocal?'local':'youtube';YT.loading=false;YT.fail=false;YT.ready=false;
+    YT.t=0;YT.stamp=performance.now();YT.state=-1;YT.dur=0;YT.rate=1;
+    el.vEmpty.hidden=false;el.vEmpty.textContent=isLocal?'기기에 저장된 영상을 불러오는 중입니다…':'영상을 불러오는 중입니다…';
+    if(isLocal){
+      var video=document.createElement('video');
+      video.playsInline=true;video.preload='metadata';video.setAttribute('aria-label',g.vid.name||'업로드한 영상');
+      YT.frame=video;YT.loading=true;
+      video.addEventListener('loadedmetadata',function(){
+        if(YT.id!==key)return;
+        YT.ready=true;YT.loading=false;YT.dur=video.duration||0;YT.t=video.currentTime||0;
+        el.vEmpty.hidden=true;vTick();
+      });
+      video.addEventListener('timeupdate',function(){if(YT.id===key){YT.t=video.currentTime;YT.stamp=performance.now();vTick()}});
+      video.addEventListener('play',function(){if(YT.id===key){YT.state=1;vTick()}});
+      video.addEventListener('pause',function(){if(YT.id===key){YT.state=2;YT.t=video.currentTime;YT.stamp=performance.now();vTick()}});
+      video.addEventListener('ratechange',function(){if(YT.id===key){YT.rate=video.playbackRate;vTick()}});
+      video.addEventListener('error',function(){
+        if(YT.id!==key)return;
+        YT.fail=true;YT.loading=false;el.vEmpty.hidden=false;
+        el.vEmpty.textContent='이 영상 형식은 이 브라우저에서 재생할 수 없습니다.';
+        YT.cap='영상 형식이나 코덱을 확인해 주세요.';vTick();
+      });
+      el.vFrame.appendChild(video);
+      getVideoFile(g.vid.localId).then(function(file){
+        if(YT.id!==key)return;
+        if(!file)throw new Error('이 기기에 영상 파일이 없습니다. 원본 기기에서 열거나 파일을 다시 업로드해 주세요.');
+        YT.objectUrl=URL.createObjectURL(file);video.src=YT.objectUrl;
+      }).catch(function(err){
+        if(YT.id!==key)return;
+        YT.fail=true;YT.loading=false;el.vEmpty.hidden=false;
+        el.vEmpty.textContent=err&&err.message?err.message:'저장한 영상 파일을 불러오지 못했습니다.';
+        YT.cap='이 영상 파일은 업로드한 기기에서만 재생할 수 있습니다.';vTick();
+      });
+      return;
+    }
+    YT.frame=null;
+    YT.ft=setTimeout(function(){if(!YT.ready){YT.fail=true;el.vEmpty.hidden=false;el.vEmpty.textContent='영상을 불러오지 못했습니다. 이 화면에서는 외부 영상이 막혀 있을 수 있습니다. 직접 올린 웹 주소에서 열거나 유튜브에서 열기를 눌러 주세요.';YT.cap='';vTick()}},10000);
     var org=(location.origin&&location.origin!=='null'&&/^https?:/.test(location.origin))?'&origin='+encodeURIComponent(location.origin):'';
     var f=document.createElement('iframe');
-    f.src='https://www.youtube.com/embed/'+YT.id+'?enablejsapi=1&playsinline=1&rel=0&modestbranding=1'+org;
+    f.src='https://www.youtube.com/embed/'+g.vid.yt+'?enablejsapi=1&playsinline=1&rel=0&modestbranding=1'+org;
     f.title='YouTube';
     f.setAttribute('allow','autoplay; encrypted-media; picture-in-picture; fullscreen');
     f.setAttribute('allowfullscreen','');
@@ -2172,16 +2280,16 @@ button:disabled{opacity:.4; cursor:not-allowed}
     el.vFrame.appendChild(f);YT.frame=f;
   }
   window.addEventListener('message',function(e){
-    if(!YT.frame||e.source!==YT.frame.contentWindow)return;
+    if(YT.kind!=='youtube'||!YT.frame||e.source!==YT.frame.contentWindow)return;
     var d=e.data;
     if(typeof d==='string'){try{d=JSON.parse(d)}catch(x){return}}
     if(!d||typeof d!=='object')return;
-    if(d.event==='onReady')YT.ready=true;
+    if(d.event==='onReady'){YT.ready=true;el.vEmpty.hidden=true}
     if(YT.ready&&YT.fail){YT.fail=false;YT.cap=''}
     if(d.event==='onStateChange'&&typeof d.info==='number'){YT.state=d.info}
     var info=d.info;
     if((d.event==='infoDelivery'||d.event==='initialDelivery')&&info&&typeof info==='object'){
-      YT.ready=true;
+      YT.ready=true;el.vEmpty.hidden=true;
       if(typeof info.currentTime==='number'){YT.t=info.currentTime;YT.stamp=performance.now()}
       if(typeof info.playerState==='number')YT.state=info.playerState;
       if(typeof info.playbackRate==='number'&&info.playbackRate>0)YT.rate=info.playbackRate;
@@ -2227,14 +2335,15 @@ button:disabled{opacity:.4; cursor:not-allowed}
     el.vHead.style.left=Math.max(0,Math.min(100,((t==null?YT.t:t)/dur)*100))+'%';
     var pl=YT.state===1?'일시정지':'재생';
     if(pl!==YT.play){YT.play=pl;el.vPlay.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="'+(YT.state===1?'M7 5h3.5v14H7ZM13.5 5H17v14h-3.5Z':'M8 5v14l11-7Z')+'"/></svg><span>'+pl+'</span>'}
-    el.vOpen.href='https://www.youtube.com/watch?v='+YT.id+'&t='+Math.max(0,Math.floor((t==null?YT.t:t)))+'s';
-    var cap=YT.fail?'유튜브 플레이어에 연결하지 못해 영상 시점이 저장되지 않습니다. 링크·골대 기록과 태그는 그대로 할 수 있습니다.':YT.ready?'스페이스 재생/정지 · ←/→ 5초 이동 · 슛 번호나 시간표 표시를 누르면 5초 전부터 재생합니다.':'영상 플레이어와 연결하는 중입니다. 연결되기 전에는 영상 시점이 저장되지 않습니다.';
+    if(YT.kind==='youtube')el.vOpen.href='https://www.youtube.com/watch?v='+YT.id.slice(8)+'&t='+Math.max(0,Math.floor((t==null?YT.t:t)))+'s';
+    var cap=YT.fail?(YT.kind==='local'?'업로드한 영상을 재생할 수 없습니다. 파일 형식과 브라우저 설정을 확인해 주세요.':'유튜브 플레이어에 연결하지 못해 영상 시점이 저장되지 않습니다. 링크·골대 기록과 태그는 그대로 할 수 있습니다.'):YT.ready?'스페이스 재생/정지 · ←/→ 5초 이동 · 슛 번호나 시간표 표시를 누르면 5초 전부터 재생합니다.':'영상 플레이어와 연결하는 중입니다. 연결되기 전에는 영상 시점이 저장되지 않습니다.';
     if(cap!==YT.cap){YT.cap=cap;el.vCap.textContent=cap}
   }
   setInterval(function(){if(D.nav.screen==='board'&&YT.frame&&!el.vidArea.hidden)vTick()},250);
   function vRender(g,num,tid){
     el.vidArea.hidden=!g.vid;
     if(!g.vid){if(YT.frame)vCmd('pauseVideo');return}
+    el.vOpen.hidden=!!g.vid.localId;
     vMount(g);
     el.vRate.innerHTML=RATES.map(function(r){return '<button data-rate="'+r+'" aria-pressed="'+(Math.abs(YT.rate-r)<0.01)+'">'+r+'×</button>'}).join('');
     var dur=vDur(g);
@@ -2290,24 +2399,51 @@ button:disabled{opacity:.4; cursor:not-allowed}
     el.vList.innerHTML=list.length?list.map(function(g){
       var st=calc(g.shots),arm=VS.arm===g.id;
       return '<div class="vrow" data-id="'+g.id+'"><div class="vinfo"><div class="t">'+fmtDate(g.date)+' vs '+esc(g.opp||'상대 미입력')+'</div>'+
-        '<div class="s">슛 '+st.sa+' · 골 '+st.ga+' · youtu.be/'+esc(g.vid.yt)+'</div></div>'+
+        '<div class="s">슛 '+st.sa+' · 골 '+st.ga+' · '+(g.vid.localId?T('이 기기에 저장')+' · '+esc(g.vid.name||T('업로드 영상')):'youtu.be/'+esc(g.vid.yt))+'</div></div>'+
         '<div class="acts2"><button class="btn sm" data-vact="open">열기</button><button class="btn sm primary" data-vact="send">골리 폴더로 보내기</button>'+
         '<button class="btn sm danger'+(arm?' armed':'')+'" data-vact="del">'+(arm?'한 번 더 누르면 삭제':'삭제')+'</button></div></div>';
-    }).join(''):'<div class="empty">아직 영상 분석 기록이 없습니다. 위에 유튜브 주소를 붙여 넣고 시작하세요.</div>';
+    }).join(''):'<div class="empty">아직 영상 분석 기록이 없습니다. 유튜브 주소를 입력하거나 영상 파일을 업로드해 시작하세요.</div>';
   }
   el.vlBack.addEventListener('click',function(){go('home')});
   el.hVid.addEventListener('click',function(){VS.arm=null;go('vlist')});
+  var videoUploading=false;
+  function localVideoType(file){
+    var ext=String(file.name||'').toLowerCase().split('.').pop();
+    return file.type.indexOf('video/')===0||['mp4','m4v','mov','webm','ogv','ogg'].indexOf(ext)>-1;
+  }
+  function newVideoId(){
+    return 'video-'+(window.crypto&&window.crypto.randomUUID?window.crypto.randomUUID():Date.now()+'-'+Math.random().toString(36).slice(2));
+  }
   el.vForm.addEventListener('submit',function(e){
     e.preventDefault();
-    var url=el.vUrlIn.value.trim(),id=ytId(url);
+    var url=el.vUrlIn.value.trim(),file=el.vFileIn.files&&el.vFileIn.files[0],id=ytId(url);
+    if(videoUploading)return;
+    if(file&&url){el.vErr.hidden=false;el.vErr.textContent='유튜브 주소 또는 업로드 파일 중 하나만 선택해 주세요.';return}
+    if(file){
+      if(!localVideoType(file)){el.vErr.hidden=false;el.vErr.textContent='MP4, MOV, WebM 등 브라우저에서 재생할 수 있는 영상 파일을 선택해 주세요.';return}
+      if(!file.size){el.vErr.hidden=false;el.vErr.textContent='비어 있는 파일은 업로드할 수 없습니다.';return}
+      if(file.size>MAX_VIDEO_SIZE){el.vErr.hidden=false;el.vErr.textContent='영상 파일은 250MB 이하여야 합니다.';return}
+      var testVideo=document.createElement('video');
+      if(file.type&&testVideo.canPlayType(file.type)===''){el.vErr.hidden=false;el.vErr.textContent='이 브라우저가 지원하지 않는 영상 형식입니다. MP4(H.264) 파일을 사용해 주세요.';return}
+      var localId=newVideoId(),submit=el.vForm.querySelector('button[type="submit"]');
+      videoUploading=true;submit.disabled=true;el.vErr.hidden=true;
+      putVideoFile(localId,file).then(function(){
+        var g={id:nid(),goalieId:null,staged:true,vid:{localId:localId,name:file.name,type:file.type,size:file.size},date:todayStr(),opp:el.vOppIn.value.trim(),toi:60,result:'',seq:0,ot:false,memo:{strokes:[],text:''},shots:[]};
+        D.games.push(g);el.vFileIn.value='';el.vOppIn.value='';
+        go('board',null,g.id,{from:'vid'});
+      }).catch(function(err){
+        el.vErr.hidden=false;el.vErr.textContent='영상 파일을 이 기기에 저장하지 못했습니다. 저장 공간을 확인해 주세요. '+(err&&err.message?err.message:'');
+      }).then(function(){videoUploading=false;submit.disabled=false});
+      return;
+    }
     if(!id){el.vErr.hidden=false;el.vErr.textContent='유튜브 주소를 확인해 주세요. 예: https://youtu.be/... 또는 https://www.youtube.com/watch?v=...';el.vUrlIn.focus();return}
     el.vErr.hidden=true;
     var g={id:nid(),goalieId:null,staged:true,vid:{url:url,yt:id},date:todayStr(),opp:el.vOppIn.value.trim(),toi:60,result:'',seq:0,ot:false,memo:{strokes:[],text:''},shots:[]};
-    D.games.push(g);
-    el.vUrlIn.value='';el.vOppIn.value='';
+    D.games.push(g);el.vUrlIn.value='';el.vOppIn.value='';
     go('board',null,g.id,{from:'vid'});
   });
   el.vUrlIn.addEventListener('input',function(){el.vErr.hidden=true});
+  el.vFileIn.addEventListener('change',function(){el.vErr.hidden=true});
   el.vList.addEventListener('click',function(e){
     var b=e.target.closest('[data-vact]');if(!b)return;
     var id=+b.closest('.vrow').getAttribute('data-id'),a=b.getAttribute('data-vact');
@@ -2316,7 +2452,9 @@ button:disabled{opacity:.4; cursor:not-allowed}
     else if(a==='send')openSend(id);
     else if(a==='del'){
       if(VS.arm!==id){VS.arm=id;renderVid();return}
+      var deleted=D.games.filter(function(x){return x.id===id})[0],localId=deleted&&deleted.vid&&deleted.vid.localId;
       VS.arm=null;D.games=D.games.filter(function(x){return x.id!==id});render();
+      if(localId)deleteVideoIfUnused(localId);
     }
   });
   el.sendBtn.addEventListener('click',function(){var g=G();if(g&&g.staged)openSend(g.id)});
@@ -2741,11 +2879,23 @@ button:disabled{opacity:.4; cursor:not-allowed}
     '영상 보며 기록하기':'Record from video','유튜브 경기 영상을 보면서 슛을 기록합니다':'Record shots while watching a YouTube game video',
     '백업 내보내기':'Export backup','백업 불러오기':'Import backup','불러오기':'Import',
     '영상 분석':'Video analysis','새 영상 분석':'New video analysis','유튜브 주소를 붙여 넣으세요':'Paste a YouTube link','유튜브 주소':'YouTube link','상대팀 (선택)':'Opponent (optional)','분석 시작':'Start analysis',
-    '공개 또는 일부 공개 영상만 재생됩니다. 영상은 앱 안에서 재생만 하고 저장하거나 내려받지 않습니다.':'Only public or unlisted videos play. The video only plays inside the app; it is never saved or downloaded.',
+    '유튜브 영상 또는 내 영상':'YouTube or your own video','내 영상 업로드':'Upload your own video',
+    '내 영상은 이 기기에만 저장되며 다른 기기와 동기화되지 않습니다. 파일당 최대 250MB입니다. 유튜브 영상은 공개 또는 일부 공개 영상만 재생됩니다.':'Your own video is stored only on this device and is not synced. Max 250 MB per file. YouTube videos must be public or unlisted.',
     '영상 분석 기록':'Video analysis records','아직 통계에 들어가지 않은 기록':'Not yet counted in stats',
     '확인이 끝난 기록은 골리 폴더로 보내야 골리·상대팀 통계에 들어갑니다.':'Once reviewed, send a record to a goalie folder; only then does it count in goalie and opponent stats.',
     '골리 폴더로 보내기':'Send to goalie folder','통계에 포함':'Include in stats','−5초':'−5 s','+5초':'+5 s','재생':'Play','일시정지':'Pause','재생 속도':'Playback speed','슛 시간표':'Shot timeline',
-    '영상을 불러오는 중입니다…':'Loading video…','아직 영상 분석 기록이 없습니다. 위에 유튜브 주소를 붙여 넣고 시작하세요.':'No video analysis records yet. Paste a YouTube link above to start.',
+    '영상을 불러오는 중입니다…':'Loading video…','기기에 저장된 영상을 불러오는 중입니다…':'Loading video saved on this device…',
+    '이 영상 형식은 이 브라우저에서 재생할 수 없습니다.':'This video format cannot be played in this browser.',
+    '이 기기에 영상 파일이 없습니다. 원본 기기에서 열거나 파일을 다시 업로드해 주세요.':'This video file is not on this device. Open it on the original device or upload it again.',
+    '이 영상 파일은 업로드한 기기에서만 재생할 수 있습니다.':'This video file can only be played on the device where it was uploaded.',
+    '영상 파일을 이 기기에 저장하지 못했습니다. 저장 공간을 확인해 주세요.':'Could not save the video on this device. Check available storage.',
+    '유튜브 주소 또는 업로드 파일 중 하나만 선택해 주세요.':'Choose either a YouTube link or an uploaded file, not both.',
+    'MP4, MOV, WebM 등 브라우저에서 재생할 수 있는 영상 파일을 선택해 주세요.':'Choose a video format supported by your browser, such as MP4, MOV or WebM.',
+    '비어 있는 파일은 업로드할 수 없습니다.':'Empty files cannot be uploaded.',
+    '영상 파일은 250MB 이하여야 합니다.':'Video files must be 250 MB or smaller.',
+    '이 브라우저가 지원하지 않는 영상 형식입니다. MP4(H.264) 파일을 사용해 주세요.':'This browser does not support the video format. Use an MP4 (H.264) file.',
+    '이 기기에 저장':'Saved on this device','업로드 영상':'Uploaded video',
+    '아직 영상 분석 기록이 없습니다. 유튜브 주소를 입력하거나 영상 파일을 업로드해 시작하세요.':'No video analysis records yet. Enter a YouTube link or upload a video file to start.',
     '유튜브 주소를 확인해 주세요. 예: https://youtu.be/... 또는 https://www.youtube.com/watch?v=...':'Check the YouTube link. e.g. https://youtu.be/... or https://www.youtube.com/watch?v=...',
     '영상 시점을 지금 위치로 저장':'Save the current video time to this shot','이 장면 보기 (5초 전부터)':'Watch this moment (from 5 s before)',
     '영상 재생 시간을 읽지 못해 이 슛에는 영상 시점이 저장되지 않았습니다.':'Couldn’t read the video time, so no video time was saved for this shot.','영상 시간을 읽지 못했습니다.':'Couldn’t read the video time.',
