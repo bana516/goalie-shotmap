@@ -433,6 +433,10 @@ button:disabled{opacity:.4; cursor:not-allowed}
 .opt.xg small{color:inherit; opacity:.75}
 .xrow{display:flex; flex-wrap:wrap; align-items:flex-end; gap:10px}
 .homebtns{grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+.authcard{gap:8px}
+.authcard .homerow{align-items:center}
+.authcard .cap{margin:0}
+.cloud-status.err{color:var(--goal)}
 #scrBoard.vmode>.panes,.vmode .mid,.vmode #memoPane,.vmode #memoTxtPane{display:none!important}
 @media (max-width:620px){.vrow{grid-template-columns:minmax(0,1fr)}.acts2{justify-content:flex-start}}
 @media (min-width:900px) and (min-aspect-ratio:1/1){
@@ -462,6 +466,16 @@ button:disabled{opacity:.4; cursor:not-allowed}
       <button class="hbtn" id="hVid"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="3"/><path d="m10 9 5 3-5 3Z"/></svg><b>영상 보며 기록하기</b><span>유튜브 경기 영상을 보면서 슛을 기록합니다</span></button>
     </div>
     <div class="gamelist" id="hResume"></div>
+    <div class="card authcard">
+      <h2>Google 계정으로 기록 동기화</h2>
+      <p class="cap" id="cloudStatus" role="status" aria-live="polite">로그인하지 않았습니다. 기록은 이 기기에 저장됩니다.</p>
+      <div class="homerow">
+        <button class="btn primary" id="googleSignIn" type="button" disabled>Google로 로그인</button>
+        <button class="btn" id="googleSignOut" type="button" hidden>로그아웃</button>
+        <button class="btn" id="cloudRetry" type="button" hidden>다시 연결</button>
+      </div>
+      <p class="cap">처음 로그인하면 기존 기록을 클라우드에 복사합니다. 직접 업로드한 영상 파일은 계속 이 기기에만 저장되며 동기화되지 않습니다.</p>
+    </div>
     <div class="homerow"><button class="btn" id="hSet">설정</button><button class="btn" id="hExport">백업 내보내기</button><button class="btn" id="hImport">백업 불러오기</button><button class="btn" id="hLang" data-notr>English</button><input type="file" id="hFile" accept="application/json,.json" hidden></div>
     <div class="dsum" id="hMsg" role="status" hidden></div>
   </section>
@@ -737,6 +751,15 @@ button:disabled{opacity:.4; cursor:not-allowed}
   var RESULTS={W:'승',OTW:'연장승',L:'패',OTL:'연장패'};
 
   var D={v:3,goalies:[],games:[],ids:0,nav:{screen:'root',goalieId:null,gameId:null}};
+  var firebaseConfig={
+    apiKey:'AIzaSyDoVKDdvIQoBmxwBS7oTW6ZgMcKuV9pRFo',
+    authDomain:'nice-goalie.firebaseapp.com',
+    projectId:'nice-goalie',
+    storageBucket:'nice-goalie.firebasestorage.app',
+    messagingSenderId:'783075844218',
+    appId:'1:783075844218:web:8f3f6be44247d0bf055bc3'
+  };
+  var cloud={sdk:null,auth:null,db:null,user:null,ref:null,ready:false,applying:false,busy:false,dirty:false,lastJson:null,timer:0,epoch:0,unsubscribe:null,authUnsubscribe:null};
   var S={view:1,goalOn:false,selected:null,reloc:null,adding:false,rootTab:'goalie',selMark:null,pendMark:null,chipF:'all'};
   var A={selectMode:false,sel:[],period:'all',filter:null,goalies:[],cur:[]};
   var M=null;
@@ -838,7 +861,228 @@ button:disabled{opacity:.4; cursor:not-allowed}
     }catch(e){}
     D=seed();
   }
-  function save(){try{localStorage.setItem(KEY,JSON.stringify(D))}catch(e){}}
+  function save(){
+    try{localStorage.setItem(KEY,JSON.stringify(D))}
+    catch(e){setCloudStatus(cloudText('이 기기에 기록을 저장하지 못했습니다. 저장 공간을 확인해 주세요.','Could not save records on this device. Check available storage.'),true)}
+    queueCloudWrite();
+  }
+  function cloudText(ko,en){return LANG==='en'?en:ko}
+  function setCloudStatus(message,isError){
+    if(!el.cloudStatus)return;
+    el.cloudStatus.textContent=message;
+    el.cloudStatus.className='cap cloud-status'+(isError?' err':'');
+    if(el.googleSignIn)el.googleSignIn.hidden=!!cloud.user;
+    if(el.googleSignOut)el.googleSignOut.hidden=!cloud.user;
+    if(el.cloudRetry)el.cloudRetry.hidden=!cloud.user;
+    if(el.googleSignIn)el.googleSignIn.disabled=!cloud.sdk||cloud.busy;
+    if(el.googleSignOut)el.googleSignOut.disabled=!cloud.sdk;
+    if(el.cloudRetry)el.cloudRetry.disabled=!cloud.sdk||!cloud.user;
+  }
+  function cloudErrorMessage(err){
+    var code=err&&err.code||'';
+    if(code==='auth/unauthorized-domain')return cloudText('이 웹 주소가 Firebase 인증 허용 도메인에 없습니다. GitHub Pages 도메인을 Firebase에 추가해 주세요.','This web address is not authorized for Firebase Authentication. Add the GitHub Pages domain in Firebase.');
+    if(code==='permission-denied')return cloudText('클라우드 접근이 거부되었습니다. Firestore 보안 규칙을 확인해 주세요.','Cloud access was denied. Check the Firestore security rules.');
+    if(code==='resource-exhausted'||code==='invalid-argument')return cloudText('기록이 클라우드 문서 크기 제한을 넘었습니다. JSON 백업을 만들어 주세요.','The records exceed the cloud document size limit. Create a JSON backup.');
+    if(code==='unavailable'||code==='auth/network-request-failed')return cloudText('네트워크에 연결할 수 없습니다. 연결 후 다시 시도해 주세요.','Network unavailable. Reconnect and try again.');
+    if(code==='auth/popup-blocked')return cloudText('로그인 팝업이 차단되었습니다. 팝업을 허용한 뒤 다시 시도해 주세요.','The sign-in popup was blocked. Allow popups and try again.');
+    return cloudText('클라우드 동기화에 실패했습니다. 다시 연결해 주세요.','Cloud sync failed. Try reconnecting.')+(code?' ('+code+')':'');
+  }
+  function reportCloudError(err){
+    console.error('Firebase cloud sync failed:',err);
+    setCloudStatus(cloudErrorMessage(err),true);
+  }
+  function cloudStateJson(data){
+    var copy=JSON.parse(JSON.stringify(data||D));
+    copy.nav={screen:'home',goalieId:null,gameId:null,team:null,from:null};
+    var json=JSON.stringify(copy);
+    if(new Blob([json]).size>800000)throw Object.assign(new Error('Cloud document exceeds the safe size limit'),{code:'resource-exhausted'});
+    return json;
+  }
+  function validCloudState(data){return !!data&&data.v===3&&Array.isArray(data.goalies)&&Array.isArray(data.games)}
+  function sampleOnly(data){
+    var expected=seed(),groups={},labels={};
+    GROUPS.forEach(function(g){groups[g]=DEFAULT_OPTS[g].map(function(o){labels[o[0]]=o[1];return o[0]})});
+    expected.tagCfg={groups:groups,labels:labels};
+    var copy=JSON.parse(JSON.stringify(data));
+    delete copy.nav;
+    delete expected.nav;
+    return JSON.stringify(copy)===JSON.stringify(expected);
+  }
+  function stashCloudConflict(localJson,remoteJson){
+    try{
+      localStorage.setItem(KEY+'-sync-conflict',JSON.stringify({savedAt:new Date().toISOString(),local:localJson,cloud:remoteJson}));
+      return true;
+    }catch(err){
+      reportCloudError(err);
+      return false;
+    }
+  }
+  function applyCloudState(data){
+    if(!validCloudState(data))throw new Error('Cloud data is not a valid Goalie Shot Map backup');
+    var nav=D.nav;
+    cloud.applying=true;
+    try{
+      D=data;
+      D.nav=nav&&nav.screen?nav:{screen:'home',goalieId:null,gameId:null,team:null,from:null};
+      migrate();
+      ensureCfg();
+      fixNav();
+      localStorage.setItem(KEY,JSON.stringify(D));
+      render();
+    }catch(err){cloud.ready=false;throw err}
+    finally{cloud.applying=false}
+  }
+  async function flushCloud(){
+    if(!cloud.ready||!cloud.user||!cloud.ref||cloud.applying)return;
+    clearTimeout(cloud.timer);cloud.timer=0;
+    var json=cloudStateJson();
+    if(json===cloud.lastJson){cloud.dirty=false;return}
+    cloud.dirty=true;
+    await cloud.sdk.firestore.setDoc(cloud.ref,{stateJson:json,updatedAt:cloud.sdk.firestore.serverTimestamp()});
+    cloud.lastJson=json;
+    cloud.dirty=false;
+    setCloudStatus(cloudText('로그인됨 · 기록이 동기화되었습니다.','Signed in · records are synced.'));
+  }
+  function queueCloudWrite(){
+    if(!cloud.ready||!cloud.user||cloud.applying)return;
+    cloud.dirty=true;
+    clearTimeout(cloud.timer);
+    cloud.timer=setTimeout(function(){flushCloud().catch(reportCloudError)},900);
+  }
+  async function useCloudSnapshot(snapshot,epoch,initial){
+    if(epoch!==cloud.epoch)return;
+    if(!snapshot.exists()){
+      if(!initial){setCloudStatus(cloudText('클라우드 기록을 찾지 못했습니다. 다시 연결해 주세요.','Cloud records were not found. Try reconnecting.'),true);return}
+      cloud.lastJson=null;
+      cloud.ready=true;
+      setCloudStatus(cloudText('기존 기록을 클라우드에 저장하고 있습니다…','Saving existing records to the cloud…'));
+      await flushCloud();
+      return;
+    }
+    var remoteJson=snapshot.data().stateJson;
+    if(typeof remoteJson!=='string')throw new Error('Cloud document is missing stateJson');
+    var remoteData;
+    try{remoteData=JSON.parse(remoteJson)}catch(err){throw new Error('Cloud record data is not valid JSON')}
+    if(!validCloudState(remoteData))throw new Error('Cloud record data has an unsupported format');
+    if(initial){
+      var localJson=cloudStateJson();
+      cloud.lastJson=remoteJson;
+      cloud.ready=true;
+      if(localJson===remoteJson){
+        setCloudStatus(cloudText('로그인됨 · 기록이 동기화되었습니다.','Signed in · records are synced.'));
+        return;
+      }
+      if(sampleOnly(D)){
+        applyCloudState(remoteData);
+        setCloudStatus(cloudText('클라우드 기록을 이 기기로 불러왔습니다.','Cloud records were loaded on this device.'));
+        return;
+      }
+      if(!stashCloudConflict(localJson,remoteJson)){cloud.ready=false;return}
+      var useRemote=window.confirm(cloudText(
+        '이 기기와 클라우드의 기록이 다릅니다. [확인]을 누르면 클라우드 기록을 불러오고, [취소]를 누르면 이 기기의 기록으로 클라우드를 덮어씁니다. 두 기록은 이 기기의 동기화 백업에 보관됩니다.',
+        'This device and the cloud have different records. Choose OK to load cloud records, or Cancel to replace the cloud with this device. Both copies are saved in this device’s sync backup.'
+      ));
+      if(useRemote){
+        applyCloudState(remoteData);
+        setCloudStatus(cloudText('클라우드 기록을 이 기기로 불러왔습니다.','Cloud records were loaded on this device.'));
+      }else{
+        cloud.dirty=true;
+        await flushCloud();
+      }
+      return;
+    }
+    if(remoteJson===cloud.lastJson||remoteJson===cloudStateJson())return;
+    if(cloud.dirty){
+      var localJson2=cloudStateJson();
+      if(!stashCloudConflict(localJson2,remoteJson)){cloud.ready=false;return}
+      var loadRemote=window.confirm(cloudText(
+        '다른 기기에서 기록이 변경되었습니다. [확인]을 누르면 다른 기기의 기록을 불러오고, [취소]를 누르면 이 기기의 기록을 유지합니다. 두 기록은 이 기기의 동기화 백업에 보관됩니다.',
+        'Records changed on another device. Choose OK to load those records, or Cancel to keep this device’s records. Both copies are saved in this device’s sync backup.'
+      ));
+      if(loadRemote){
+        cloud.lastJson=remoteJson;
+        cloud.dirty=false;
+        applyCloudState(remoteData);
+        setCloudStatus(cloudText('다른 기기의 최신 기록을 불러왔습니다.','Loaded the latest records from another device.'));
+      }else{
+        cloud.lastJson=remoteJson;
+        cloud.dirty=true;
+        await flushCloud();
+      }
+      return;
+    }
+    cloud.lastJson=remoteJson;
+    applyCloudState(remoteData);
+    setCloudStatus(cloudText('다른 기기의 최신 기록을 불러왔습니다.','Loaded the latest records from another device.'));
+  }
+  async function connectCloudUser(user){
+    cloud.epoch++;
+    var epoch=cloud.epoch;
+    if(cloud.unsubscribe){cloud.unsubscribe();cloud.unsubscribe=null}
+    cloud.user=user;cloud.ref=null;cloud.ready=false;cloud.dirty=false;cloud.lastJson=null;
+    if(!user){
+      setCloudStatus(cloud.sdk?cloudText('로그인하지 않았습니다. 기록은 이 기기에 저장됩니다.','Not signed in. Records are saved on this device.'):cloudText('로그인 기능을 불러오는 중입니다…','Loading Google sign-in…'));
+      return;
+    }
+    setCloudStatus(cloudText('Google 계정 확인 중…','Connecting to your Google account…'));
+    var ref=cloud.sdk.firestore.doc(cloud.db,'users',user.uid,'appData','state');
+    cloud.ref=ref;
+    try{
+      var snapshot=await cloud.sdk.firestore.getDocFromServer(ref);
+      if(epoch!==cloud.epoch)return;
+      await useCloudSnapshot(snapshot,epoch,true);
+      if(epoch!==cloud.epoch)return;
+      cloud.unsubscribe=cloud.sdk.firestore.onSnapshot(ref,function(next){
+        useCloudSnapshot(next,epoch,false).catch(function(err){cloud.ready=false;reportCloudError(err)});
+      },function(err){cloud.ready=false;reportCloudError(err)});
+    }catch(err){if(epoch===cloud.epoch){cloud.ready=false;reportCloudError(err)}}
+  }
+  async function initCloud(){
+    try{
+      var modules=await Promise.all([
+        import('https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js'),
+        import('https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js'),
+        import('https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js')
+      ]);
+      var appSdk=modules[0],authSdk=modules[1],firestoreSdk=modules[2];
+      var app=appSdk.initializeApp(firebaseConfig);
+      cloud.auth=authSdk.getAuth(app);
+      cloud.db=firestoreSdk.getFirestore(app);
+      cloud.sdk={auth:authSdk,firestore:firestoreSdk};
+      setCloudStatus(cloudText('로그인하지 않았습니다. 기록은 이 기기에 저장됩니다.','Not signed in. Records are saved on this device.'));
+      el.googleSignIn.addEventListener('click',async function(){
+        cloud.busy=true;
+        setCloudStatus(cloudText('Google 로그인 중…','Signing in with Google…'));
+        var provider=new authSdk.GoogleAuthProvider();
+        provider.setCustomParameters({prompt:'select_account'});
+        try{await authSdk.signInWithPopup(cloud.auth,provider)}
+        catch(err){
+          if(err&&err.code==='auth/popup-blocked'){
+            try{await authSdk.signInWithRedirect(cloud.auth,provider);return}
+            catch(redirectErr){reportCloudError(redirectErr);return}
+          }
+          reportCloudError(err);
+        }finally{
+          cloud.busy=false;
+          if(!cloud.user)el.googleSignIn.disabled=!cloud.sdk;
+        }
+      });
+      el.googleSignOut.addEventListener('click',async function(){
+        try{await authSdk.signOut(cloud.auth)}
+        catch(err){reportCloudError(err)}
+      });
+      el.cloudRetry.addEventListener('click',function(){
+        if(cloud.user)connectCloudUser(cloud.user);
+      });
+      authSdk.onAuthStateChanged(cloud.auth,function(user){
+        connectCloudUser(user);
+      },reportCloudError);
+      authSdk.getRedirectResult(cloud.auth).catch(reportCloudError);
+    }catch(err){
+      reportCloudError(err);
+      if(el.googleSignIn)el.googleSignIn.disabled=true;
+    }
+  }
   function videoDb(){
     if(videoDbPromise)return videoDbPromise;
     videoDbPromise=new Promise(function(resolve,reject){
@@ -980,7 +1224,7 @@ button:disabled{opacity:.4; cursor:not-allowed}
    'aggScope','aggSub','aggStats','aggTabs','hLang','zoneCard','zoneSub','zoneTabs','zoneBody','aggRinkHost','aggNetHost','aggTable',
    'bBack','bBackName','bTitle','stats','mOpp','mToi','mRes','tabs','goalBtn','undoBtn','redoBtn','guide',
    'rinkPane','netPane','sitPane','rinkSvg','netSvg','rinkMarks','netMarks','sitTgt','sitBody','chips','clearBtn','backdrop','menu','flipBtn','rinkCap','otBtn','subBtn','splitNote','dlgWrap','dlg','memoCv','memoText','memoTools',
-   'hVid','hExport','hImport','hFile','hMsg','scrVid','vlBack','vForm','vUrlIn','vFileIn','vOppIn','vErr','vList','vidArea','vFrame','vBack5','vPlay','vFwd5','vTime','vRate','vLine','vMarks','vHead','vCap','vEmpty','vOpen','vRec','chipF','sendBtn','vNote','vSwWrap','vSw','pdfBtn','gMsg','aggNote','xWrap','xdlg'
+   'hVid','hExport','hImport','hFile','hMsg','cloudStatus','googleSignIn','googleSignOut','cloudRetry','scrVid','vlBack','vForm','vUrlIn','vFileIn','vOppIn','vErr','vList','vidArea','vFrame','vBack5','vPlay','vFwd5','vTime','vRate','vLine','vMarks','vHead','vCap','vEmpty','vOpen','vRec','chipF','sendBtn','vNote','vSwWrap','vSw','pdfBtn','gMsg','aggNote','xWrap','xdlg'
   ].forEach(function(id){el[id]=$(id)});
   el.aggRinkHost.innerHTML=cloneSvg(el.rinkSvg,'agg-');
   el.aggNetHost.innerHTML=cloneSvg(el.netSvg,'agg-');
@@ -2869,6 +3113,23 @@ button:disabled{opacity:.4; cursor:not-allowed}
   var EN={
 
     '기록':'Mark','슈팅만':'Shots only','기록만':'Marks only','목록 보기':'List view','키보드 R':'Keyboard R',
+    'Google 계정으로 기록 동기화':'Sync records with Google','Google로 로그인':'Sign in with Google','로그아웃':'Sign out','다시 연결':'Reconnect',
+    '로그인하지 않았습니다. 기록은 이 기기에 저장됩니다.':'Not signed in. Records are saved on this device.',
+    '처음 로그인하면 기존 기록을 클라우드에 복사합니다. 직접 업로드한 영상 파일은 계속 이 기기에만 저장되며 동기화되지 않습니다.':'When you first sign in, existing records are copied to the cloud. Uploaded video files stay on this device and are not synced.',
+    'Google 로그인 중…':'Signing in with Google…','Google 계정 확인 중…':'Connecting to your Google account…',
+    '기존 기록을 클라우드에 저장하고 있습니다…':'Saving existing records to the cloud…',
+    '로그인됨 · 기록이 동기화되었습니다.':'Signed in · records are synced.',
+    '클라우드 기록을 이 기기로 불러왔습니다.':'Cloud records were loaded on this device.',
+    '다른 기기의 최신 기록을 불러왔습니다.':'Loaded the latest records from another device.',
+    '클라우드 기록을 찾지 못했습니다. 다시 연결해 주세요.':'Cloud records were not found. Try reconnecting.',
+    '로그인 기능을 불러오는 중입니다…':'Loading Google sign-in…',
+    '이 기기에 기록을 저장하지 못했습니다. 저장 공간을 확인해 주세요.':'Could not save records on this device. Check available storage.',
+    '이 웹 주소가 Firebase 인증 허용 도메인에 없습니다. GitHub Pages 도메인을 Firebase에 추가해 주세요.':'This web address is not authorized for Firebase Authentication. Add the GitHub Pages domain in Firebase.',
+    '클라우드 접근이 거부되었습니다. Firestore 보안 규칙을 확인해 주세요.':'Cloud access was denied. Check the Firestore security rules.',
+    '기록이 클라우드 문서 크기 제한을 넘었습니다. JSON 백업을 만들어 주세요.':'The records exceed the cloud document size limit. Create a JSON backup.',
+    '네트워크에 연결할 수 없습니다. 연결 후 다시 시도해 주세요.':'Network unavailable. Reconnect and try again.',
+    '로그인 팝업이 차단되었습니다. 팝업을 허용한 뒤 다시 시도해 주세요.':'The sign-in popup was blocked. Allow popups and try again.',
+    '클라우드 동기화에 실패했습니다. 다시 연결해 주세요.':'Cloud sync failed. Try reconnecting.',
     '이 시간으로 슛 기록하기':'Record a shot at this time','시간을 지금 위치로 저장':'Save the current time','표시할 기록이 없습니다.':'Nothing to show.',
     '먼저 기록 중인 슛의 골대 위치를 찍어 주세요.':'First tap the net location for the shot in progress.',
 
@@ -3121,6 +3382,7 @@ button:disabled{opacity:.4; cursor:not-allowed}
   }
   render();
   applyLang();
+  initCloud();
 })();
 </script>
 </body>
