@@ -16,7 +16,7 @@
 :root{
   --bg:#EDF1F5; --panel:#FFFFFF; --ink:#13202C; --muted:#5A6A78; --line:#D2DBE3;
   --ice:#E8F2F8; --boards:#8FA9BC; --rl:#C9574E; --bl:#4A7DBF; --mesh:#9DB6C8; --post:#C9574E;
-  --save:#17395C; --save-ink:#FFFFFF; --goal:#DB1F6B; --goal-ink:#FFFFFF; --sel:#F2A900;
+  --save:#17395C; --save-ink:#FFFFFF; --goal:#DB1F6B; --goal-ink:#FFFFFF; --sel:#F2A900; --rec:#17924F; --rec-ink:#FFFFFF;
   --f-body:'Barlow','Apple SD Gothic Neo','Noto Sans KR',system-ui,sans-serif;
   --f-disp:'Barlow Condensed','Apple SD Gothic Neo','Noto Sans KR',system-ui,sans-serif;
 }
@@ -24,14 +24,14 @@
   :root:not([data-theme="light"]){
     --bg:#0D141B; --panel:#15202A; --ink:#E8EFF5; --muted:#8FA1B1; --line:#263543;
     --ice:#1A2C3A; --boards:#4C6B82; --rl:#A9524C; --bl:#4F7FB8; --mesh:#3E5A70; --post:#D0645B;
-    --save:#8EC5F2; --save-ink:#0B1722; --goal:#FF4F93; --goal-ink:#1A0610; --sel:#FFC233;
+    --save:#8EC5F2; --save-ink:#0B1722; --goal:#FF4F93; --goal-ink:#1A0610; --sel:#FFC233; --rec:#4ADE80; --rec-ink:#062012;
     color-scheme:dark;
   }
 }
 :root[data-theme="dark"]{
   --bg:#0D141B; --panel:#15202A; --ink:#E8EFF5; --muted:#8FA1B1; --line:#263543;
   --ice:#1A2C3A; --boards:#4C6B82; --rl:#A9524C; --bl:#4F7FB8; --mesh:#3E5A70; --post:#D0645B;
-  --save:#8EC5F2; --save-ink:#0B1722; --goal:#FF4F93; --goal-ink:#1A0610; --sel:#FFC233;
+  --save:#8EC5F2; --save-ink:#0B1722; --goal:#FF4F93; --goal-ink:#1A0610; --sel:#FFC233; --rec:#4ADE80; --rec-ink:#062012;
   color-scheme:dark;
 }
 *{box-sizing:border-box}
@@ -257,9 +257,9 @@ button:disabled{opacity:.4; cursor:not-allowed}
 .dsum{padding:10px 12px; border-radius:12px; background:var(--bg); border:1px solid var(--line); font-size:14px; line-height:1.5; font-variant-numeric:tabular-nums}
 .dsum.err{border-color:var(--goal); color:var(--goal)}
 .dact{display:flex; gap:8px; justify-content:flex-end}
-.homebtns{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px}
-.hbtn{display:grid; grid-template-rows:52px auto auto; gap:8px; align-content:start; justify-items:start; text-align:left; min-height:210px; padding:24px; border-radius:24px; border:1px solid var(--line); background:var(--panel)}
-.hbtn svg{width:52px; height:52px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; margin:0; justify-self:start}
+.homebtns{display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:14px}
+.hbtn{display:grid; gap:8px; align-content:end; justify-items:start; text-align:left; min-height:210px; padding:24px; border-radius:24px; border:1px solid var(--line); background:var(--panel)}
+.hbtn svg{width:52px; height:52px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; margin-bottom:auto}
 .hbtn b{font-family:var(--f-disp); font-size:36px; line-height:1.05; letter-spacing:.02em}
 .hbtn span{color:var(--muted); font-size:14px}
 .hbtn.primary{background:var(--ink); border-color:var(--ink); color:var(--bg)}
@@ -381,9 +381,6 @@ button:disabled{opacity:.4; cursor:not-allowed}
   .hbtn span{font-size:16px}
   .folders{grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
 }
-@media (max-width:760px), (max-aspect-ratio:1/1){
-  .homebtns{grid-template-columns:minmax(0,1fr)}
-}
 @media (max-width:899px), (max-aspect-ratio:1/1){
   .zonecard[data-zm=net] .zb-rink,.zonecard[data-zm=rink] .zb-net{display:none}
 }
@@ -399,6 +396,9 @@ button:disabled{opacity:.4; cursor:not-allowed}
 #vPlay svg{fill:currentColor; stroke:none}
 .vtime{font-family:var(--f-disp); font-size:20px; font-weight:600; font-variant-numeric:tabular-nums; white-space:nowrap}
 .seg.vrate{margin-left:auto}
+.vfoot{display:flex; align-items:center; gap:10px}
+.vfoot .vcap{flex:1; min-width:0}
+.vopen{min-height:36px; flex:none; display:inline-flex; align-items:center; text-decoration:none; color:inherit}
 .seg.vrate button{min-width:40px; min-height:46px; padding:0 5px}
 .vline{position:relative; height:46px; cursor:pointer; touch-action:manipulation}
 .vtrack{position:absolute; left:0; right:0; top:20px; height:6px; border-radius:3px; background:var(--line)}
@@ -432,15 +432,23 @@ button:disabled{opacity:.4; cursor:not-allowed}
 .opt.xg{display:flex; justify-content:space-between; align-items:center; gap:10px; width:100%; text-align:left}
 .opt.xg small{color:inherit; opacity:.75}
 .xrow{display:flex; flex-wrap:wrap; align-items:flex-end; gap:10px}
-.homebtns{grid-template-columns:repeat(3,minmax(0,1fr))}
-@media (max-width:760px), (max-aspect-ratio:1/1){.homebtns{grid-template-columns:minmax(0,1fr)}}
+.homebtns{grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
 #scrBoard.vmode>.panes,.vmode .mid,.vmode #memoPane,.vmode #memoTxtPane{display:none!important}
 @media (max-width:620px){.vrow{grid-template-columns:minmax(0,1fr)}.acts2{justify-content:flex-start}}
 @media (min-width:900px) and (min-aspect-ratio:1/1){
   #scrBoard.vmode>.vidarea{grid-column:1}
   #scrBoard.vmode #rinkPane{width:auto; max-width:none; min-width:0}
-  .vframe{max-height:calc(100vh - 426px)}
+  .vframe{max-height:calc(100vh - 444px)}
 }
+
+/* ===== [기록] 시간 표시 ===== */
+.recbtn{background:var(--rec); color:var(--rec-ink); border-color:var(--rec)}
+.recbtn svg{fill:none}
+.chip.mark .n{background:var(--rec); color:var(--rec-ink)}
+.chip.mark .ct{color:var(--rec)}
+.vm.rec i{background:var(--rec); border-radius:3px; transform:rotate(45deg); width:13px; height:13px}
+.seg.chipf button{min-height:40px; padding:0 10px; font-size:13px}
+.vfoot .vtime{flex:none}
 </style>
 </head>
 <body>
@@ -602,16 +610,16 @@ button:disabled{opacity:.4; cursor:not-allowed}
     </div>
 
     <section class="vidarea" id="vidArea" hidden>
-      <div class="vframe" id="vFrame"><div class="vempty">영상을 불러오는 중입니다…</div></div>
+      <div class="vframe" id="vFrame"><div class="vempty" id="vEmpty">영상을 불러오는 중입니다…</div></div>
       <div class="vctl">
+        <button class="btn vbig recbtn" id="vRec" type="button" title="키보드 R"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 21V4M6 4h11l-2.5 4L17 12H6"/></svg><span>기록</span></button>
         <button class="btn vbig" id="vBack5" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 7 6 12l5 5M18 7l-5 5 5 5"/></svg><span>−5초</span></button>
         <button class="btn vbig primary" id="vPlay" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7Z"/></svg><span>재생</span></button>
         <button class="btn vbig" id="vFwd5" type="button"><span>+5초</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m13 7 5 5-5 5M6 7l5 5-5 5"/></svg></button>
-        <span class="vtime" id="vTime">0:00</span>
         <div class="seg txt vrate" id="vRate" role="group" aria-label="재생 속도"></div>
       </div>
       <div class="vline" id="vLine" aria-label="슛 시간표"><div class="vtrack"><i class="vhead" id="vHead"></i></div><div class="vmarks" id="vMarks"></div></div>
-      <div class="vcap" id="vCap"></div>
+      <div class="vfoot"><span class="vtime" id="vTime">0:00</span><div class="vcap" id="vCap"></div><a class="btn sm vopen" id="vOpen" target="_blank" rel="noopener" href="#">유튜브에서 열기</a></div>
       <div class="vnote" id="vNote" hidden></div>
     </section>
 
@@ -685,6 +693,7 @@ button:disabled{opacity:.4; cursor:not-allowed}
     <section class="strip" style="display:grid">
       <div class="striphead">
         <span class="selhint">마커나 번호를 누르면 3번 칸에서 그 슛의 상황을 고칠 수 있습니다. 꾹 누르면 골 표시, 위치 이동, 삭제 메뉴가 열립니다.</span>
+        <div class="seg txt chipf" id="chipF" role="group" aria-label="목록 보기" hidden></div>
         <button class="btn sm danger sp" id="clearBtn"></button>
       </div>
       <div class="chips hold" id="chips"></div>
@@ -725,7 +734,7 @@ button:disabled{opacity:.4; cursor:not-allowed}
   var RESULTS={W:'승',OTW:'연장승',L:'패',OTL:'연장패'};
 
   var D={v:3,goalies:[],games:[],ids:0,nav:{screen:'root',goalieId:null,gameId:null}};
-  var S={view:1,goalOn:false,selected:null,reloc:null,adding:false,rootTab:'goalie'};
+  var S={view:1,goalOn:false,selected:null,reloc:null,adding:false,rootTab:'goalie',selMark:null,pendMark:null,chipF:'all'};
   var A={selectMode:false,sel:[],period:'all',filter:null,goalies:[],cur:[]};
   var M=null;
   var DLG=null;
@@ -849,11 +858,11 @@ button:disabled{opacity:.4; cursor:not-allowed}
   }
 
   /* ---------- board undo ---------- */
-  function snap(){var g=G();return JSON.stringify({shots:g.shots,seq:g.seq,fx:g.fx||{},goalOn:S.goalOn,selected:S.selected})}
+  function snap(){var g=G();return JSON.stringify({shots:g.shots,marks:g.marks||[],seq:g.seq,fx:g.fx||{},goalOn:S.goalOn,selected:S.selected})}
   function pushUndo(){undo.push(snap());if(undo.length>100)undo.shift();redo.length=0}
   function restore(str){
     var o=JSON.parse(str),g=G();
-    g.shots=o.shots;g.seq=o.seq;g.fx=o.fx||{};S.goalOn=o.goalOn;S.selected=o.selected;M=null;S.reloc=null;
+    g.shots=o.shots;g.marks=o.marks||[];g.seq=o.seq;g.fx=o.fx||{};S.goalOn=o.goalOn;S.selected=o.selected;M=null;S.reloc=null;S.pendMark=null;
     if(S.selected!=null&&!byId(S.selected))S.selected=null;
     if(S.view!=='all'){var p=pending(S.view);if(p)S.goalOn=p.goal}
   }
@@ -870,7 +879,7 @@ button:disabled{opacity:.4; cursor:not-allowed}
     if(sc==='new')NG={goalieId:gid||null,newName:'',opp:''};
     if(sc==='board'&&gmid)D.last=gmid;
     if(sc!=='board'&&YT.frame)vCmd('pauseVideo');
-    M=null;S.selected=null;S.reloc=null;S.goalOn=false;S.adding=false;undo=[];redo=[];clearArm=false;MS.undo=[];MS.clearArm=false;MS.cur=null;
+    M=null;S.selected=null;S.reloc=null;S.goalOn=false;S.adding=false;S.selMark=null;S.pendMark=null;undo=[];redo=[];clearArm=false;MS.undo=[];MS.clearArm=false;MS.cur=null;
     if(sc==='goalie'||sc==='team'){A.selectMode=false;A.sel=[];A.period='all';A.filter=null;A.goalies=[]}
     if(sc==='board'){
       var g=G(),last=null;
@@ -916,7 +925,7 @@ button:disabled{opacity:.4; cursor:not-allowed}
    'aggScope','aggSub','aggStats','aggTabs','hLang','zoneCard','zoneSub','zoneTabs','zoneBody','aggRinkHost','aggNetHost','aggTable',
    'bBack','bBackName','bTitle','stats','mOpp','mToi','mRes','tabs','goalBtn','undoBtn','redoBtn','guide',
    'rinkPane','netPane','sitPane','rinkSvg','netSvg','rinkMarks','netMarks','sitTgt','sitBody','chips','clearBtn','backdrop','menu','flipBtn','rinkCap','otBtn','subBtn','splitNote','dlgWrap','dlg','memoCv','memoText','memoTools',
-   'hVid','hExport','hImport','hFile','hMsg','scrVid','vlBack','vForm','vUrlIn','vOppIn','vErr','vList','vidArea','vFrame','vBack5','vPlay','vFwd5','vTime','vRate','vLine','vMarks','vHead','vCap','sendBtn','vNote','vSwWrap','vSw','pdfBtn','gMsg','aggNote','xWrap','xdlg'
+   'hVid','hExport','hImport','hFile','hMsg','scrVid','vlBack','vForm','vUrlIn','vOppIn','vErr','vList','vidArea','vFrame','vBack5','vPlay','vFwd5','vTime','vRate','vLine','vMarks','vHead','vCap','vEmpty','vOpen','vRec','chipF','sendBtn','vNote','vSwWrap','vSw','pdfBtn','gMsg','aggNote','xWrap','xdlg'
   ].forEach(function(id){el[id]=$(id)});
   el.aggRinkHost.innerHTML=cloneSvg(el.rinkSvg,'agg-');
   el.aggNetHost.innerHTML=cloneSvg(el.netSvg,'agg-');
@@ -1012,7 +1021,10 @@ button:disabled{opacity:.4; cursor:not-allowed}
     if(pend){pend.rink=pt}
     else{
       var o={id:nid(),seq:++g.seq,period:S.view,goal:S.goalOn,rink:pt,net:null,tags:[]};
-      if(g.vid){var vt=vNow();if(vt!=null)o.vt=Math.round(vt*10)/10}
+      var pm=S.pendMark!=null&&(g.marks||[]).filter(function(x){return x.id===S.pendMark})[0];
+      if(pm){o.vt=pm.t;g.marks=g.marks.filter(function(x){return x!==pm})}
+      else if(g.vid){var vt=vNow();if(vt!=null)o.vt=Math.round(vt*10)/10}
+      S.pendMark=null;S.selMark=null;
       g.shots.push(o);
       if(g.vid&&o.vt==null){S.selected=null;flash('영상 재생 시간을 읽지 못해 이 슛에는 영상 시점이 저장되지 않았습니다.',true);return}
     }
@@ -1130,10 +1142,13 @@ button:disabled{opacity:.4; cursor:not-allowed}
 
   holdable(el.chips,'.chip',
     function(t){
-      var id=+t.getAttribute('data-id');S.selected=id;render();
+      if(t.hasAttribute('data-mk')){var mk2=markById(+t.getAttribute('data-mk'));if(!mk2)return;S.selMark=mk2.id;S.selected=null;render();vSeek(mk2.t-5,true);return}
+      var id=+t.getAttribute('data-id');S.selected=id;S.selMark=null;render();
       var g=G(),s=byId(id);if(g&&g.vid&&s&&s.vt!=null)vSeek(s.vt-5,true);
     },
-    function(t){var id=+t.getAttribute('data-id');S.selected=id;render();openMenu('shot',id,t.getBoundingClientRect(),{})});
+    function(t){
+      if(t.hasAttribute('data-mk')){var mi=+t.getAttribute('data-mk');S.selMark=mi;render();openMenu('mark',mi,t.getBoundingClientRect(),{});return}
+      var id=+t.getAttribute('data-id');S.selected=id;render();openMenu('shot',id,t.getBoundingClientRect(),{})});
   holdable(el.folders,'.folder[data-id]',
     function(t){go('goalie',+t.getAttribute('data-id'))},
     function(t){openMenu('goalie',+t.getAttribute('data-id'),t.getBoundingClientRect(),{})});
@@ -1181,6 +1196,14 @@ button:disabled{opacity:.4; cursor:not-allowed}
         (G()&&G().vid?(s.vt!=null?'<button class="mi" data-act="vt-go">이 장면 보기 (5초 전부터)</button>':'')+'<button class="mi" data-act="vt-now">영상 시점을 지금 위치로 저장</button>':'')+
         '<button class="mi danger" data-act="del">삭제</button>'+
         (M.marker?'<div class="mn-hint">누른 채 그대로 끌면 바로 옮길 수 있습니다. 상황은 3번 칸에서 고칩니다.</div>':'<div class="mn-hint">상황은 3번 칸에서 고칩니다.</div>');
+    }else if(M.kind==='mark'){
+      var mm=markById(M.id);
+      if(!mm){M=null;return renderMenu()}
+      html='<div class="mn-head">기록 '+markNum(G())[mm.id]+' · '+fmtT(mm.t)+'</div>'+
+        '<button class="mi" data-act="vt-go">이 장면 보기 (5초 전부터)</button>'+
+        '<button class="mi" data-act="mk-shot">이 시간으로 슛 기록하기</button>'+
+        '<button class="mi" data-act="mk-now">시간을 지금 위치로 저장</button>'+
+        '<button class="mi danger" data-act="del">삭제</button>';
     }else if(M.kind==='goalie'){
       var gl=goalieById(M.id);
       if(!gl){M=null;return renderMenu()}
@@ -1253,6 +1276,22 @@ button:disabled{opacity:.4; cursor:not-allowed}
         M=null;S.selected=null;
         flash('슛 #'+n+'을 삭제했습니다. 되돌리기로 복구할 수 있습니다.',false);
       }
+    }else if(M.kind==='mark'){
+      var g2=G(),mk=markById(M.id);if(!mk){M=null;render();return}
+      if(act==='vt-go'){M=null;S.selMark=mk.id;render();vSeek(mk.t-5,true)}
+      else if(act==='mk-shot'){
+        M=null;
+        var per=S.view==='all'?(mk.period||1):S.view;
+        if(pending(per)){S.view=per;flash('먼저 기록 중인 슛의 골대 위치를 찍어 주세요.',true);return}
+        S.view=per;S.pendMark=mk.id;S.selMark=mk.id;S.selected=null;
+        vSeek(mk.t,false);vCmd('pauseVideo');YT.state=2;render();
+      }
+      else if(act==='mk-now'){
+        var tn=vNow();M=null;
+        if(tn==null){flash('영상 시간을 읽지 못했습니다.',true);return}
+        pushUndo();mk.t=Math.round(tn*10)/10;S.selMark=mk.id;render();
+      }
+      else if(act==='del'){pushUndo();g2.marks=g2.marks.filter(function(x){return x!==mk});if(S.pendMark===mk.id)S.pendMark=null;S.selMark=null;M=null;render()}
     }else if(M.kind==='goalie'){
       if(act==='rename'){M.mode='rename';renderMenu()}
       else if(act==='save-rename'){doRename()}
@@ -1544,7 +1583,7 @@ button:disabled{opacity:.4; cursor:not-allowed}
     else{g.ot=false;setView(S.view===4?3:S.view)}
   });
   el.guide.addEventListener('click',function(e){
-    if(e.target.closest('[data-act="cancel-reloc"]')){S.reloc=null;render()}
+    if(e.target.closest('[data-act="cancel-reloc"]')){S.reloc=null;S.pendMark=null;render()}
   });
   el.clearBtn.addEventListener('click',function(){
     if(el.clearBtn.disabled)return;
@@ -1552,6 +1591,7 @@ button:disabled{opacity:.4; cursor:not-allowed}
     clearArm=false;pushUndo();
     var g=G();
     g.shots=S.view==='all'?[]:g.shots.filter(function(x){return x.period!==S.view});
+    if(g.marks)g.marks=S.view==='all'?[]:g.marks.filter(function(x){return x.period!==S.view});S.selMark=null;
     S.selected=null;S.goalOn=false;render();
   });
   el.sitPane.addEventListener('click',function(e){
@@ -1650,6 +1690,10 @@ button:disabled{opacity:.4; cursor:not-allowed}
       gtxt='슛 #'+(rs?num[rs.id]:'')+'의 새 위치를 '+(S.reloc.which==='rink'?'링크':'골대 그림')+'에서 터치하세요.';
       showCancel=true;
     }
+    else if(S.pendMark!=null&&markById(S.pendMark)){
+      var pmk=markById(S.pendMark);
+      gtxt='기록 '+markNum(g)[pmk.id]+' ('+fmtT(pmk.t)+') 시간으로 슛을 기록합니다. 1번 링크에서 슈팅 위치를 터치하세요.';showCancel=true;
+    }
     else if(S.view==='all')gtxt='전체 보기입니다. 기록하려면 위에서 피리어드를 선택하세요.';
     else if(pend)gtxt='슛 #'+num[pend.id]+' · 2번 골대 그림에서 공이 맞은 위치를 터치하세요.'+(pend.goal?' (골로 기록 중)':'');
     else{
@@ -1676,7 +1720,20 @@ button:disabled{opacity:.4; cursor:not-allowed}
     el.rinkMarks.innerHTML=ordered.map(function(s){return mk(s,num[s.id],flip?rot(s.rink):s.rink,3.3,3.9,s.id===tid)}).join('');
     el.netMarks.innerHTML=ordered.filter(function(s){return s.net}).map(function(s){return mk(s,num[s.id],s.net,3.8,4.6,s.id===tid)}).join('');
 
-    el.chips.innerHTML=vis.length?vis.map(function(s){
+    var items=vis.map(function(s){return {k:'s',o:s,t:s.vt!=null?s.vt:Infinity}});
+    var mnum=markNum(g);
+    if(g.vid){
+      var vm=(g.marks||[]).filter(function(m){return S.view==='all'||m.period==null||m.period===S.view});
+      var nS=items.length,nM=vm.length;
+      el.chipF.hidden=false;
+      el.chipF.innerHTML=[['all','전체',nS+nM],['shot','슈팅만',nS],['rec','기록만',nM]].map(function(f){return '<button data-cf="'+f[0]+'" aria-pressed="'+(S.chipF===f[0])+'">'+f[1]+' '+f[2]+'</button>'}).join('');
+      if(S.chipF==='rec')items=[];
+      if(S.chipF!=='shot')items=items.concat(vm.map(function(m){return {k:'m',o:m,t:m.t}}));
+      items.sort(function(a,b){return a.t-b.t||((a.o.seq||0)-(b.o.seq||0))});
+    }else el.chipF.hidden=true;
+    el.chips.innerHTML=items.length?items.map(function(it){
+      if(it.k==='m'){var m=it.o;return '<button class="chip mark'+(m.id===S.selMark?' sel':'')+'" data-mk="'+m.id+'"><span class="n">'+mnum[m.id]+'</span><span class="ct">기록'+(S.view==='all'&&m.period?' <i>'+PER[m.period]+'</i>':'')+'</span><span class="vt">'+fmtT(m.t)+'</span></button>'}
+      var s=it.o;
       var c='chip'+(s.goal?' goal':'')+(s.net?'':' pend')+(s.id===tid?' sel':'');
       var tgs=tagShort(s);
       var ct='';
@@ -1684,7 +1741,7 @@ button:disabled{opacity:.4; cursor:not-allowed}
         ct='<span class="ct">'+(S.view==='all'?'<i>'+PER[s.period]+(tgs.length?' · ':'')+'</i>':'')+esc(tgs.join(' · '))+'</span>';
       }
       return '<button class="'+c+'" data-id="'+s.id+'"><span class="n">'+num[s.id]+'</span>'+ct+(g.vid&&s.vt!=null?'<span class="vt">'+fmtT(s.vt)+'</span>':'')+'</button>';
-    }).join(''):'<div class="empty">아직 기록이 없습니다. 1번 링크에서 첫 슛의 위치를 터치하세요.</div>';
+    }).join(''):'<div class="empty">'+(g.vid&&S.chipF!=='all'?'표시할 기록이 없습니다.':'아직 기록이 없습니다. 1번 링크에서 첫 슛의 위치를 터치하세요.')+'</div>';
 
     vRender(g,num,tid);
     el.clearBtn.disabled=!vis.length;
@@ -2071,7 +2128,7 @@ button:disabled{opacity:.4; cursor:not-allowed}
   });
 
   /* ---------- 영상 분석: 유튜브 플레이어 (공식 embed + postMessage) ---------- */
-  var YT={id:null,frame:null,t:0,stamp:0,state:-1,rate:1,dur:0,ready:false,lt:null,cap:'',play:''};
+  var YT={id:null,frame:null,t:0,stamp:0,state:-1,rate:1,dur:0,ready:false,fail:false,lt:null,ft:null,cap:'',play:''};
   var RATES=[0.25,0.5,1,1.5,2];
   function ytId(u){
     u=String(u||'').trim();
@@ -2094,7 +2151,9 @@ button:disabled{opacity:.4; cursor:not-allowed}
   function vMount(g){
     if(YT.id===g.vid.yt&&YT.frame&&el.vFrame.contains(YT.frame))return;
     if(YT.frame&&YT.frame.parentNode)YT.frame.parentNode.removeChild(YT.frame);
-    clearInterval(YT.lt);
+    clearInterval(YT.lt);clearTimeout(YT.ft);
+    YT.fail=false;el.vEmpty.textContent='영상을 불러오는 중입니다…';
+    YT.ft=setTimeout(function(){if(!YT.ready){YT.fail=true;el.vEmpty.textContent='영상을 불러오지 못했습니다. 이 화면에서는 외부 영상이 막혀 있을 수 있습니다. 직접 올린 웹 주소에서 열거나 유튜브에서 열기를 눌러 주세요.';YT.cap='';vTick()}},10000);
     YT.id=g.vid.yt;YT.ready=false;YT.t=0;YT.stamp=performance.now();YT.state=-1;YT.dur=0;YT.rate=1;
     var org=(location.origin&&location.origin!=='null'&&/^https?:/.test(location.origin))?'&origin='+encodeURIComponent(location.origin):'';
     var f=document.createElement('iframe');
@@ -2118,6 +2177,7 @@ button:disabled{opacity:.4; cursor:not-allowed}
     if(typeof d==='string'){try{d=JSON.parse(d)}catch(x){return}}
     if(!d||typeof d!=='object')return;
     if(d.event==='onReady')YT.ready=true;
+    if(YT.ready&&YT.fail){YT.fail=false;YT.cap=''}
     if(d.event==='onStateChange'&&typeof d.info==='number'){YT.state=d.info}
     var info=d.info;
     if((d.event==='infoDelivery'||d.event==='initialDelivery')&&info&&typeof info==='object'){
@@ -2142,10 +2202,21 @@ button:disabled{opacity:.4; cursor:not-allowed}
     else{vCmd('playVideo');YT.stamp=performance.now();YT.state=1}
     vTick();
   }
+  function markById(id){var g=G();return g&&g.marks?g.marks.filter(function(m){return m.id===id})[0]||null:null}
+  function markNum(g){var o={};(g&&g.marks?g.marks.slice():[]).sort(function(a,b){return a.t-b.t}).forEach(function(m,i){o[m.id]=i+1});return o}
+  function addMark(){
+    var g=G();if(!g||!g.vid||D.nav.screen!=='board')return;
+    var t=vNow();
+    if(t==null){flash('영상 시간을 읽지 못했습니다.',true);return}
+    pushUndo();g.marks=g.marks||[];
+    var m={id:nid(),t:Math.round(t*10)/10,period:S.view==='all'?null:S.view};
+    g.marks.push(m);S.selMark=m.id;
+    flash('기록 '+markNum(g)[m.id]+' 저장됨 · '+fmtT(m.t),false);
+  }
   function vStep(d){var t=vNow();if(t==null)t=YT.t;vSeek(t+d,false)}
   function vDur(g){
     if(YT.dur)return YT.dur;
-    var mx=0;g.shots.forEach(function(s){if(s.vt>mx)mx=s.vt});
+    var mx=0;g.shots.forEach(function(s){if(s.vt>mx)mx=s.vt});(g.marks||[]).forEach(function(m){if(m.t>mx)mx=m.t});
     return mx?mx+30:600;
   }
   function vTick(){
@@ -2156,7 +2227,8 @@ button:disabled{opacity:.4; cursor:not-allowed}
     el.vHead.style.left=Math.max(0,Math.min(100,((t==null?YT.t:t)/dur)*100))+'%';
     var pl=YT.state===1?'일시정지':'재생';
     if(pl!==YT.play){YT.play=pl;el.vPlay.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="'+(YT.state===1?'M7 5h3.5v14H7ZM13.5 5H17v14h-3.5Z':'M8 5v14l11-7Z')+'"/></svg><span>'+pl+'</span>'}
-    var cap=YT.ready?'스페이스 재생/정지 · ←/→ 5초 이동 · 슛 번호나 시간표 표시를 누르면 5초 전부터 재생합니다.':'영상 플레이어와 연결하는 중입니다. 연결되기 전에는 영상 시점이 저장되지 않습니다.';
+    el.vOpen.href='https://www.youtube.com/watch?v='+YT.id+'&t='+Math.max(0,Math.floor((t==null?YT.t:t)))+'s';
+    var cap=YT.fail?'유튜브 플레이어에 연결하지 못해 영상 시점이 저장되지 않습니다. 링크·골대 기록과 태그는 그대로 할 수 있습니다.':YT.ready?'스페이스 재생/정지 · ←/→ 5초 이동 · 슛 번호나 시간표 표시를 누르면 5초 전부터 재생합니다.':'영상 플레이어와 연결하는 중입니다. 연결되기 전에는 영상 시점이 저장되지 않습니다.';
     if(cap!==YT.cap){YT.cap=cap;el.vCap.textContent=cap}
   }
   setInterval(function(){if(D.nav.screen==='board'&&YT.frame&&!el.vidArea.hidden)vTick()},250);
@@ -2168,9 +2240,13 @@ button:disabled{opacity:.4; cursor:not-allowed}
     var dur=vDur(g);
     el.vMarks.innerHTML=g.shots.filter(function(s){return s.vt!=null}).map(function(s){
       return '<button class="vm'+(s.goal?' goal':'')+(s.id===tid?' sel':'')+'" data-id="'+s.id+'" style="left:'+Math.max(0,Math.min(100,s.vt/dur*100))+'%" title="#'+num[s.id]+' · '+PER[s.period]+' · '+fmtT(s.vt)+'"><i></i></button>';
-    }).join('');
+    }).join('')+(function(){var mn=markNum(g);return (g.marks||[]).map(function(m){
+      return '<button class="vm rec'+(m.id===S.selMark?' sel':'')+'" data-mk="'+m.id+'" style="left:'+Math.max(0,Math.min(100,m.t/dur*100))+'%" title="기록 '+mn[m.id]+' · '+fmtT(m.t)+'"><i></i></button>';
+    }).join('')})();
     YT.cap='';YT.play='';vTick();
   }
+  el.vRec.addEventListener('click',addMark);
+  el.chipF.addEventListener('click',function(e){var b=e.target.closest('[data-cf]');if(!b)return;S.chipF=b.getAttribute('data-cf');render()});
   el.vBack5.addEventListener('click',function(){vStep(-5)});
   el.vFwd5.addEventListener('click',function(){vStep(5)});
   el.vPlay.addEventListener('click',vToggle);
@@ -2184,6 +2260,10 @@ button:disabled{opacity:.4; cursor:not-allowed}
   el.vLine.addEventListener('click',function(e){
     var g=G();if(!g||!g.vid)return;
     var m=e.target.closest('.vm');
+    if(m&&m.hasAttribute('data-mk')){
+      var mk=markById(+m.getAttribute('data-mk'));if(!mk)return;
+      S.selMark=mk.id;S.selected=null;render();vSeek(mk.t-5,true);return;
+    }
     if(m){
       var s=byId(+m.getAttribute('data-id'));if(!s)return;
       S.selected=s.id;if(S.view!=='all'&&S.view!==s.period)S.view=s.period;
@@ -2198,6 +2278,7 @@ button:disabled{opacity:.4; cursor:not-allowed}
     if(e.key===' '||e.code==='Space'){e.preventDefault();vToggle()}
     else if(e.key==='ArrowLeft'){e.preventDefault();vStep(-5)}
     else if(e.key==='ArrowRight'){e.preventDefault();vStep(5)}
+    else if(e.code==='KeyR'&&!e.metaKey&&!e.ctrlKey&&!e.altKey){e.preventDefault();addMark()}
   });
 
   /* ---------- 영상 분석 목록 ---------- */
@@ -2322,8 +2403,8 @@ button:disabled{opacity:.4; cursor:not-allowed}
       flash('영상 분석 기록을 '+gname+' 폴더에 새 경기로 저장했습니다.',false);
     }else{
       var t=D.games.filter(function(x){return x.id===XD.target})[0];if(!t)return;
-      t.prev={shots:t.shots,seq:t.seq,ot:!!t.ot,fx:t.fx||{},vid:t.vid||null,at:todayStr()};
-      t.shots=sg.shots;t.seq=sg.seq;t.ot=!!(t.ot||sg.ot);t.fx=sg.fx||{};t.vid=sg.vid;
+      t.prev={shots:t.shots,marks:t.marks||[],seq:t.seq,ot:!!t.ot,fx:t.fx||{},vid:t.vid||null,at:todayStr()};
+      t.marks=sg.marks||[];t.shots=sg.shots;t.seq=sg.seq;t.ot=!!(t.ot||sg.ot);t.fx=sg.fx||{};t.vid=sg.vid;
       D.games=D.games.filter(function(x){return x.id!==sg.id});
       XD=null;renderX();go('board',t.goalieId,t.id);
       flash('현장 기록을 영상 기록으로 덮어썼습니다. 이전 기록은 백업으로 남아 있습니다.',false);
@@ -2331,8 +2412,8 @@ button:disabled{opacity:.4; cursor:not-allowed}
   }
   function undoOverwrite(gm){
     var p=gm.prev;if(!p)return;
-    if(gm.vid)D.games.push({id:nid(),goalieId:null,staged:true,vid:gm.vid,date:todayStr(),opp:gm.opp||'',toi:60,result:'',seq:gm.seq,ot:!!gm.ot,fx:gm.fx||{},memo:{strokes:[],text:''},shots:gm.shots});
-    gm.shots=p.shots;gm.seq=p.seq;gm.ot=p.ot;gm.fx=p.fx;if(p.vid)gm.vid=p.vid;else delete gm.vid;
+    if(gm.vid)D.games.push({id:nid(),goalieId:null,staged:true,vid:gm.vid,date:todayStr(),opp:gm.opp||'',toi:60,result:'',seq:gm.seq,ot:!!gm.ot,fx:gm.fx||{},memo:{strokes:[],text:''},shots:gm.shots,marks:gm.marks||[]});
+    gm.shots=p.shots;gm.marks=p.marks||[];gm.seq=p.seq;gm.ot=p.ot;gm.fx=p.fx;if(p.vid)gm.vid=p.vid;else delete gm.vid;
     delete gm.prev;
   }
   el.xdlg.addEventListener('click',function(e){
@@ -2649,6 +2730,14 @@ button:disabled{opacity:.4; cursor:not-allowed}
   try{if(localStorage.getItem('goalie-lang')==='en')LANG='en'}catch(x){}
   var EN={
 
+    '기록':'Mark','슈팅만':'Shots only','기록만':'Marks only','목록 보기':'List view','키보드 R':'Keyboard R',
+    '이 시간으로 슛 기록하기':'Record a shot at this time','시간을 지금 위치로 저장':'Save the current time','표시할 기록이 없습니다.':'Nothing to show.',
+    '먼저 기록 중인 슛의 골대 위치를 찍어 주세요.':'First tap the net location for the shot in progress.',
+
+    '유튜브에서 열기':'Open in YouTube',
+    '영상을 불러오지 못했습니다. 이 화면에서는 외부 영상이 막혀 있을 수 있습니다. 직접 올린 웹 주소에서 열거나 유튜브에서 열기를 눌러 주세요.':'Couldn’t load the video. External videos may be blocked on this page. Open the app from your own web address, or tap Open in YouTube.',
+    '유튜브 플레이어에 연결하지 못해 영상 시점이 저장되지 않습니다. 링크·골대 기록과 태그는 그대로 할 수 있습니다.':'Couldn’t connect to the YouTube player, so video times aren’t saved. You can still record rink and net locations and tags.',
+
     '영상 보며 기록하기':'Record from video','유튜브 경기 영상을 보면서 슛을 기록합니다':'Record shots while watching a YouTube game video',
     '백업 내보내기':'Export backup','백업 불러오기':'Import backup','불러오기':'Import',
     '영상 분석':'Video analysis','새 영상 분석':'New video analysis','유튜브 주소를 붙여 넣으세요':'Paste a YouTube link','유튜브 주소':'YouTube link','상대팀 (선택)':'Opponent (optional)','분석 시작':'Start analysis',
@@ -2742,6 +2831,12 @@ button:disabled{opacity:.4; cursor:not-allowed}
     '연장 5분':'the 5-minute overtime','피리어드 길이':'the period length','기록판':'board','경기 시간':'game time','구간 출전':'played'
   };
   var RULES=[
+
+    [/^기록 (\d+) \((.+?)\) 시간으로 슛을 기록합니다\. 1번 링크에서 슈팅 위치를 터치하세요\.$/,'Recording a shot at Mark $1 ($2). Tap the shot location on the rink (step 1).'],
+    [/^기록 (\d+) 저장됨 · (.+)$/,'Saved Mark $1 · $2'],
+    [/^기록 (\d+) · (.+)$/,'Mark $1 · $2'],
+    [/^(전체|슈팅만|기록만) (\d+)$/,function(m,a,b){return ({'전체':'All','슈팅만':'Shots','기록만':'Marks'})[a]+' '+b}],
+    [/^기록 (P\d|OT)$/,'Mark $1'],
 
     [/^영상 분석 기록 \(슛 (\d+)개 · 골 (\d+)개\)을 골리 폴더로 옮깁니다\. 옮긴 뒤에는 영상 분석 목록에서 빠집니다\.$/,'Moves this video analysis record ($1 shots · $2 goals) to a goalie folder. Once moved, it leaves the video analysis list.'],
     [/^(.+)의 현장 기록 슛 (\d+)개가 영상 기록 슛 (\d+)개로 바뀝니다\. 바뀌기 전 기록은 백업으로 남고, 그 경기를 꾹 눌러 되돌릴 수 있습니다\.$/,'The live record of $1 ($2 shots) will be replaced by the video record ($3 shots). The previous record is kept as a backup; long-press that game to restore it.'],
