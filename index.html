@@ -635,6 +635,7 @@ button:disabled{opacity:.4; cursor:not-allowed}
       <div class="vframe" id="vFrame"><div class="vempty" id="vEmpty">영상을 불러오는 중입니다…</div></div>
       <div class="vctl">
         <button class="btn vbig recbtn" id="vRec" type="button" title="키보드 R"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 21V4M6 4h11l-2.5 4L17 12H6"/></svg><span>기록</span></button>
+        <button class="btn vbig" id="vMapMark" type="button" disabled title="선택한 기록 시간을 슛 위치에 연결">기록 매핑</button>
         <button class="btn vbig" id="vBack5" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 7 6 12l5 5M18 7l-5 5 5 5"/></svg><span>−5초</span></button>
         <button class="btn vbig primary" id="vPlay" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7Z"/></svg><span>재생</span></button>
         <button class="btn vbig" id="vFwd5" type="button"><span>+5초</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m13 7 5 5-5 5M6 7l5 5-5 5"/></svg></button>
@@ -1231,7 +1232,7 @@ button:disabled{opacity:.4; cursor:not-allowed}
    'aggScope','aggSub','aggStats','aggTabs','hLang','zoneCard','zoneSub','zoneTabs','zoneBody','aggRinkHost','aggNetHost','aggTable',
    'bBack','bBackName','bTitle','stats','mOpp','mToi','mRes','tabs','goalBtn','undoBtn','redoBtn','guide',
    'rinkPane','netPane','sitPane','rinkSvg','netSvg','rinkMarks','netMarks','sitTgt','sitBody','chips','clearBtn','backdrop','menu','flipBtn','rinkCap','otBtn','subBtn','splitNote','dlgWrap','dlg','memoCv','memoText','memoTools',
-   'hVid','hExport','hImport','hFile','hMsg','cloudStatus','googleSignIn','googleSignOut','cloudRetry','scrVid','vlBack','vForm','vUrlIn','vFileIn','vFileName','vOppIn','vErr','vList','vidArea','vFrame','vBack5','vPlay','vFwd5','vTime','vRate','vLine','vMarks','vHead','vCap','vEmpty','vOpen','vRec','chipF','sendBtn','vNote','vSwWrap','vSw','pdfBtn','gMsg','aggNote','xWrap','xdlg'
+   'hVid','hExport','hImport','hFile','hMsg','cloudStatus','googleSignIn','googleSignOut','cloudRetry','scrVid','vlBack','vForm','vUrlIn','vFileIn','vFileName','vOppIn','vErr','vList','vidArea','vFrame','vBack5','vPlay','vFwd5','vTime','vRate','vLine','vMarks','vHead','vCap','vEmpty','vOpen','vRec','vMapMark','chipF','sendBtn','vNote','vSwWrap','vSw','pdfBtn','gMsg','aggNote','xWrap','xdlg'
   ].forEach(function(id){el[id]=$(id)});
   el.aggRinkHost.innerHTML=cloneSvg(el.rinkSvg,'agg-');
   el.aggNetHost.innerHTML=cloneSvg(el.netSvg,'agg-');
@@ -1586,11 +1587,7 @@ button:disabled{opacity:.4; cursor:not-allowed}
       var g2=G(),mk=markById(M.id);if(!mk){M=null;render();return}
       if(act==='vt-go'){M=null;S.selMark=mk.id;render();vSeek(mk.t-5,true)}
       else if(act==='mk-shot'){
-        M=null;
-        var per=S.view==='all'?(mk.period||1):S.view;
-        if(pending(per)){S.view=per;flash('먼저 기록 중인 슛의 골대 위치를 찍어 주세요.',true);return}
-        S.view=per;S.pendMark=mk.id;S.selMark=mk.id;S.selected=null;
-        vSeek(mk.t,false);vCmd('pauseVideo');YT.state=2;render();
+        M=null;startMarkShot(mk.id);
       }
       else if(act==='mk-now'){
         var tn=vNow();M=null;
@@ -2563,6 +2560,13 @@ button:disabled{opacity:.4; cursor:not-allowed}
   }
   function markById(id){var g=G();return g&&g.marks?g.marks.filter(function(m){return m.id===id})[0]||null:null}
   function markNum(g){var o={};(g&&g.marks?g.marks.slice():[]).sort(function(a,b){return a.t-b.t}).forEach(function(m,i){o[m.id]=i+1});return o}
+  function startMarkShot(id){
+    var mk=markById(id);if(!mk)return;
+    var per=S.view==='all'?(mk.period||1):S.view;
+    if(pending(per)){S.view=per;flash('먼저 기록 중인 슛의 골대 위치를 찍어 주세요.',true);return}
+    S.view=per;S.pendMark=mk.id;S.selMark=mk.id;S.selected=null;
+    vSeek(mk.t,false);vCmd('pauseVideo');YT.state=2;render();
+  }
   function addMark(){
     var g=G();if(!g||!g.vid||D.nav.screen!=='board')return;
     var t=vNow();
@@ -2603,9 +2607,11 @@ button:disabled{opacity:.4; cursor:not-allowed}
     }).join('')+(function(){var mn=markNum(g);return (g.marks||[]).map(function(m){
       return '<button class="vm rec'+(m.id===S.selMark?' sel':'')+'" data-mk="'+m.id+'" style="left:'+Math.max(0,Math.min(100,m.t/dur*100))+'%" title="기록 '+mn[m.id]+' · '+fmtT(m.t)+'"><i></i></button>';
     }).join('')})();
+    el.vMapMark.disabled=!markById(S.selMark)||S.pendMark!=null;
     YT.cap='';YT.play='';vTick();
   }
   el.vRec.addEventListener('click',addMark);
+  el.vMapMark.addEventListener('click',function(){startMarkShot(S.selMark)});
   el.chipF.addEventListener('click',function(e){var b=e.target.closest('[data-cf]');if(!b)return;S.chipF=b.getAttribute('data-cf');render()});
   el.vBack5.addEventListener('click',function(){vStep(-5)});
   el.vFwd5.addEventListener('click',function(){vStep(5)});
