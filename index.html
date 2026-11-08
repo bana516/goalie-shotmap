@@ -422,6 +422,11 @@ button:disabled{opacity:.4; cursor:not-allowed}
 .vnewrow{display:flex; flex-wrap:wrap; align-items:flex-end; gap:10px}
 .vnewrow .vgrow{flex:1 1 320px}
 .vnewrow .fld input{width:100%}
+.vnewrow .filebox{position:relative; display:flex; align-items:center; justify-content:center; gap:10px; width:100%; height:48px; min-width:0; padding:0 12px; overflow:hidden; border:1px solid var(--line); border-radius:10px; background:var(--panel); color:var(--ink); font-size:15px; font-weight:500}
+.vnewrow .filechoose{flex:none; padding:6px 12px; border:1px solid var(--line); border-radius:7px; background:var(--bg); white-space:nowrap}
+.vnewrow .filename{min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.vnewrow #vFileIn{position:absolute; inset:0; width:100%; height:100%; min-height:0; padding:0; border:0; border-radius:inherit; opacity:0; cursor:pointer}
+.vnewrow .filebox:focus-within{outline:3px solid var(--sel); outline-offset:2px}
 .vnewrow .btn{min-height:48px}
 .vlist{display:grid; gap:10px}
 .vrow{display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:10px; padding:10px 12px; border:1px solid var(--line); border-radius:12px; background:var(--bg)}
@@ -500,7 +505,9 @@ button:disabled{opacity:.4; cursor:not-allowed}
       <h2>새 영상 분석 <em>유튜브 영상 또는 내 영상</em></h2>
       <div class="vnewrow">
         <label class="fld vgrow" for="vUrlIn">유튜브 주소<input id="vUrlIn" type="url" inputmode="url" placeholder="https://youtu.be/..." autocomplete="off"></label>
-        <label class="fld vgrow" for="vFileIn">내 영상 업로드<input id="vFileIn" type="file" accept="video/*"></label>
+        <label class="fld vgrow filefld" for="vFileIn">내 영상 업로드
+          <span class="filebox"><span class="filechoose">파일 선택</span><span class="filename" id="vFileName">선택된 파일 없음</span><input id="vFileIn" type="file" accept="video/*" aria-label="내 영상 업로드"></span>
+        </label>
         <label class="fld" for="vOppIn">상대팀 (선택)<input id="vOppIn" type="text" maxlength="40" placeholder="상대팀 이름" list="teamList" autocomplete="off"></label>
         <button class="btn primary" type="submit">분석 시작</button>
       </div>
@@ -1224,7 +1231,7 @@ button:disabled{opacity:.4; cursor:not-allowed}
    'aggScope','aggSub','aggStats','aggTabs','hLang','zoneCard','zoneSub','zoneTabs','zoneBody','aggRinkHost','aggNetHost','aggTable',
    'bBack','bBackName','bTitle','stats','mOpp','mToi','mRes','tabs','goalBtn','undoBtn','redoBtn','guide',
    'rinkPane','netPane','sitPane','rinkSvg','netSvg','rinkMarks','netMarks','sitTgt','sitBody','chips','clearBtn','backdrop','menu','flipBtn','rinkCap','otBtn','subBtn','splitNote','dlgWrap','dlg','memoCv','memoText','memoTools',
-   'hVid','hExport','hImport','hFile','hMsg','cloudStatus','googleSignIn','googleSignOut','cloudRetry','scrVid','vlBack','vForm','vUrlIn','vFileIn','vOppIn','vErr','vList','vidArea','vFrame','vBack5','vPlay','vFwd5','vTime','vRate','vLine','vMarks','vHead','vCap','vEmpty','vOpen','vRec','chipF','sendBtn','vNote','vSwWrap','vSw','pdfBtn','gMsg','aggNote','xWrap','xdlg'
+   'hVid','hExport','hImport','hFile','hMsg','cloudStatus','googleSignIn','googleSignOut','cloudRetry','scrVid','vlBack','vForm','vUrlIn','vFileIn','vFileName','vOppIn','vErr','vList','vidArea','vFrame','vBack5','vPlay','vFwd5','vTime','vRate','vLine','vMarks','vHead','vCap','vEmpty','vOpen','vRec','chipF','sendBtn','vNote','vSwWrap','vSw','pdfBtn','gMsg','aggNote','xWrap','xdlg'
   ].forEach(function(id){el[id]=$(id)});
   el.aggRinkHost.innerHTML=cloneSvg(el.rinkSvg,'agg-');
   el.aggNetHost.innerHTML=cloneSvg(el.netSvg,'agg-');
@@ -2673,7 +2680,7 @@ button:disabled{opacity:.4; cursor:not-allowed}
       videoUploading=true;submit.disabled=true;el.vErr.hidden=true;
       putVideoFile(localId,file).then(function(){
         var g={id:nid(),goalieId:null,staged:true,vid:{localId:localId,name:file.name,type:file.type,size:file.size},date:todayStr(),opp:el.vOppIn.value.trim(),toi:60,result:'',seq:0,ot:false,memo:{strokes:[],text:''},shots:[]};
-        D.games.push(g);el.vFileIn.value='';el.vOppIn.value='';
+        D.games.push(g);el.vFileIn.value='';el.vFileName.textContent='선택된 파일 없음';el.vOppIn.value='';
         go('board',null,g.id,{from:'vid'});
       }).catch(function(err){
         el.vErr.hidden=false;el.vErr.textContent='영상 파일을 이 기기에 저장하지 못했습니다. 저장 공간을 확인해 주세요. '+(err&&err.message?err.message:'');
@@ -2687,7 +2694,11 @@ button:disabled{opacity:.4; cursor:not-allowed}
     go('board',null,g.id,{from:'vid'});
   });
   el.vUrlIn.addEventListener('input',function(){el.vErr.hidden=true});
-  el.vFileIn.addEventListener('change',function(){el.vErr.hidden=true});
+  el.vFileIn.addEventListener('change',function(){
+    el.vErr.hidden=true;
+    var file=el.vFileIn.files&&el.vFileIn.files[0];
+    el.vFileName.textContent=file?file.name:'선택된 파일 없음';
+  });
   el.vList.addEventListener('click',function(e){
     var b=e.target.closest('[data-vact]');if(!b)return;
     var id=+b.closest('.vrow').getAttribute('data-id'),a=b.getAttribute('data-vact');
@@ -2725,6 +2736,22 @@ button:disabled{opacity:.4; cursor:not-allowed}
     var gOk=XD.goalie==='new'?XD.newName.trim().length>0:XD.goalie!=null;
     return gOk&&(XD.mode==='new'||!!XD.target);
   }
+  function syncXInput(){
+    if(!XD||XD.kind!=='send')return;
+    Array.prototype.forEach.call(el.xdlg.querySelectorAll('[data-xg]'),function(b){
+      b.setAttribute('aria-pressed',String(String(XD.goalie)===b.getAttribute('data-xg')));
+    });
+    var go=el.xdlg.querySelector('[data-xact="go"]');
+    if(go)go.disabled=!xOk();
+    if(XD.mode==='over'){
+      var list=el.xdlg.querySelector('.xlist'),empty=$('xNoTargets');
+      if(list&&empty){
+        var hasGames=XD.goalie!=null&&XD.goalie!=='new'&&byDate(gamesOf(+XD.goalie)).length>0;
+        list.hidden=!hasGames;
+        empty.hidden=hasGames;
+      }
+    }
+  }
   function renderX(){
     if(!XD){el.xWrap.hidden=true;el.xdlg.innerHTML='';return}
     var focusId=document.activeElement&&el.xdlg.contains(document.activeElement)?document.activeElement.id:null,h='';
@@ -2759,9 +2786,9 @@ button:disabled{opacity:.4; cursor:not-allowed}
       h+='<div class="cap">새 경기에는 "영상 분석" 표시가 붙습니다. 통계 포함은 나중에 경기 화면에서도 바꿀 수 있습니다.</div>';
       if(XD.incl&&XD.twin)h+='<div class="vnote">현장 기록과 함께 통계에 들어가 슛이 두 번 세어집니다.</div>';
     }else{
-      if(!mine.length)h+='<div class="dsum err">이 골리에게 덮어쓸 경기가 없습니다. 새 경기로 따로 저장을 고르세요.</div>';
+      if(!mine.length)h+='<div class="dsum err" id="xNoTargets">이 골리에게 덮어쓸 경기가 없습니다. 새 경기로 따로 저장을 고르세요.</div>';
       else{
-        h+='<div class="grp"><div class="gl">덮어쓸 경기</div><div class="xlist">'+mine.map(function(g){return gbtn(g,'xo',XD.target===g.id)}).join('')+'</div></div>';
+        h+='<div class="grp"><div class="gl">덮어쓸 경기</div><div class="xlist">'+mine.map(function(g){return gbtn(g,'xo',XD.target===g.id)}).join('')+'</div><div class="dsum err" id="xNoTargets" hidden>이 골리에게 덮어쓸 경기가 없습니다. 새 경기로 따로 저장을 고르세요.</div></div>';
         var tg=mine.filter(function(g){return g.id===XD.target})[0];
         if(tg)h+='<div class="vnote">'+esc(gameLabel(tg))+'의 현장 기록 슛 '+tg.shots.length+'개가 영상 기록 슛 '+sg.shots.length+'개로 바뀝니다. 바뀌기 전 기록은 백업으로 남고, 그 경기를 꾹 눌러 되돌릴 수 있습니다.</div>';
       }
@@ -2818,7 +2845,7 @@ button:disabled{opacity:.4; cursor:not-allowed}
   el.xdlg.addEventListener('input',function(e){
     if(!XD||XD.kind!=='send')return;
     var t=e.target;
-    if(t.id==='xNew'){XD.newName=t.value;XD.goalie=t.value.trim()?'new':null;XD.target=null;XD.twin=null;XD.arm=false;renderX()}
+    if(t.id==='xNew'){XD.newName=t.value;XD.goalie=t.value.trim()?'new':null;XD.target=null;XD.twin=null;XD.arm=false;syncXInput()}
     else if(t.id==='xOpp'){XD.opp=t.value}
     else if(t.id==='xDate'){XD.date=t.value}
   });
@@ -3130,6 +3157,7 @@ button:disabled{opacity:.4; cursor:not-allowed}
     '네트워크에 연결할 수 없습니다. 연결 후 다시 시도해 주세요.':'Network unavailable. Reconnect and try again.',
     '로그인 팝업이 차단되었습니다. 팝업을 허용한 뒤 다시 시도해 주세요.':'The sign-in popup was blocked. Allow popups and try again.',
     '클라우드 동기화에 실패했습니다. 다시 연결해 주세요.':'Cloud sync failed. Try reconnecting.',
+    '파일 선택':'Choose file','선택된 파일 없음':'No file selected',
     '이 시간으로 슛 기록하기':'Record a shot at this time','시간을 지금 위치로 저장':'Save the current time','표시할 기록이 없습니다.':'Nothing to show.',
     '먼저 기록 중인 슛의 골대 위치를 찍어 주세요.':'First tap the net location for the shot in progress.',
 
